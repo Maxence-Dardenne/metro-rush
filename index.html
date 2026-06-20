@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Metro Rush - Subway Edition</title>
+    <title>Metro Rush - Llama Subway Edition</title>
     <style>
         :root {
-            --bg-color: #0c0f1d;
-            --card-bg: rgba(255, 255, 255, 0.12);
+            --bg-color: #1a2a52;
+            --card-bg: rgba(255, 255, 255, 0.14);
             --card-blur: blur(25px);
-            --accent-color: #FF9500; /* Orange Subway */
-            --accent-gradient: linear-gradient(135deg, #FF9500, #FF5E00);
+            --accent-color: #FF9500;
+            --accent-gradient: linear-gradient(135deg, #FF9500, #FF5E8A);
+            --accent-gradient-2: linear-gradient(135deg, #00C2A8, #00A3FF);
             --text-color: #FFFFFF;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
@@ -39,7 +40,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: radial-gradient(circle at center, #1e223a 0%, #0c0f1d 100%);
+            background: radial-gradient(circle at center, #2d4a8a 0%, #14213d 100%);
         }
 
         canvas {
@@ -75,7 +76,7 @@
             -webkit-backdrop-filter: var(--card-blur);
             padding: 14px 24px;
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
             font-weight: 800;
             font-size: 1.2rem;
             letter-spacing: -0.5px;
@@ -87,13 +88,32 @@
             color: #FFD60A;
         }
 
+        .pause-btn {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            backdrop-filter: var(--card-blur);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
         .screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(12, 15, 29, 0.85);
+            background: linear-gradient(180deg, rgba(26,42,82,0.92) 0%, rgba(20,33,61,0.95) 100%);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             display: flex;
@@ -104,6 +124,8 @@
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.4s ease, visibility 0.4s ease;
+            overflow-y: auto;
+            padding: 20px 0;
         }
 
         .screen.active {
@@ -112,10 +134,10 @@
         }
 
         .panel {
-            background: rgba(30, 33, 58, 0.75);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(35, 45, 80, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 32px;
-            padding: 40px;
+            padding: 36px;
             text-align: center;
             max-width: 420px;
             width: 90%;
@@ -129,64 +151,220 @@
         }
 
         h1 {
-            font-size: 3rem;
+            font-size: 2.6rem;
             font-weight: 900;
             letter-spacing: -1.5px;
-            margin-bottom: 6px;
-            background: linear-gradient(180deg, #FF9500 0%, #FFCC00 100%);
+            margin-bottom: 4px;
+            background: linear-gradient(180deg, #FFB347 0%, #FF5E8A 60%, #00C2A8 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
         }
 
+        .emoji-row {
+            font-size: 2.4rem;
+            margin-bottom: 10px;
+            letter-spacing: 6px;
+        }
+
         p {
-            color: #AEAEB2;
+            color: #D6D9F0;
             font-size: 1rem;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .stats-container {
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 32px;
+            padding: 18px;
+            margin-bottom: 24px;
         }
 
         .stat-row {
             display: flex;
             justify-content: space-between;
             padding: 10px 0;
-            font-size: 1.2rem;
-            font-weight: 600;
+            font-size: 1.15rem;
+            font-weight: 700;
         }
         .stat-row:not(:last-child) {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .btn {
             background: var(--accent-gradient);
             color: white;
             border: none;
-            padding: 18px 32px;
-            font-size: 1.2rem;
-            font-weight: 700;
+            padding: 17px 28px;
+            font-size: 1.15rem;
+            font-weight: 800;
             border-radius: 20px;
             cursor: pointer;
             width: 100%;
             transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            box-shadow: 0 8px 25px rgba(255, 149, 0, 0.35);
+            box-shadow: 0 8px 25px rgba(255, 94, 138, 0.35);
             pointer-events: auto;
             text-transform: uppercase;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
         .btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(255, 149, 0, 0.5);
+            box-shadow: 0 12px 30px rgba(255, 94, 138, 0.5);
         }
 
         .btn:active {
             transform: translateY(1px);
         }
+
+        .btn.secondary {
+            background: rgba(255,255,255,0.1);
+            box-shadow: none;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+        .btn.secondary:hover {
+            box-shadow: 0 8px 20px rgba(255,255,255,0.12);
+        }
+
+        .btn.teal {
+            background: var(--accent-gradient-2);
+            box-shadow: 0 8px 25px rgba(0, 163, 255, 0.35);
+        }
+
+        .menu-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .total-coins-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 214, 10, 0.14);
+            border: 1px solid rgba(255, 214, 10, 0.35);
+            border-radius: 16px;
+            padding: 10px 16px;
+            margin-bottom: 18px;
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #FFD60A;
+        }
+
+        .controls-box {
+            text-align: left;
+            font-size: 0.92rem;
+            color: #E5E5EA;
+            line-height: 1.6;
+        }
+        .controls-box .label {
+            margin-bottom: 8px;
+            font-weight: 800;
+            color: #FF9500;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        /* --- REWARDS SCREEN --- */
+        .rewards-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 22px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .reward-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 12px 14px;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+        .reward-item.unlocked {
+            background: linear-gradient(135deg, rgba(0,194,168,0.18), rgba(0,163,255,0.12));
+            border-color: rgba(0,194,168,0.45);
+        }
+        .reward-icon {
+            font-size: 1.8rem;
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .reward-item.unlocked .reward-icon {
+            background: rgba(0, 194, 168, 0.25);
+        }
+        .reward-text {
+            flex: 1;
+        }
+        .reward-title {
+            font-weight: 800;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+        .reward-sub {
+            font-size: 0.78rem;
+            color: #AEB3D6;
+        }
+        .reward-check {
+            font-size: 1.2rem;
+            color: #00C2A8;
+        }
+
+        .badge-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .badge-pill {
+            background: rgba(255,255,255,0.1);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .new-reward-toast {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: linear-gradient(135deg, #FFD60A, #FF9500);
+            color: #1a2a52;
+            padding: 14px 22px;
+            border-radius: 18px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            box-shadow: 0 12px 30px rgba(255, 214, 10, 0.45);
+            z-index: 20;
+            opacity: 0;
+            transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .new-reward-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -201,34 +379,93 @@
             </div>
         </div>
 
+        <div class="pause-btn" id="pause-btn">⏸️</div>
+        <div class="new-reward-toast" id="reward-toast"></div>
+
+        <!-- ÉCRAN D'ACCUEIL CHALEUREUX -->
         <div class="screen active" id="start-screen">
             <div class="panel">
+                <div class="emoji-row">🦙🚇😀</div>
                 <h1>Metro Rush</h1>
-                <p>Édition Spéciale pour Maxence Dardenne</p>
-                <div class="stats-container" style="text-align: left; font-size: 0.95rem; color: #E5E5EA; line-height: 1.5;">
-                    <div style="margin-bottom: 10px; font-weight: 800; color: #FF9500; text-transform: uppercase;">Commandes :</div>
-                    • <strong>PC :</strong> Flèches ou Z, Q, S, D<br>
-                    • <strong>Mobile / Tablette :</strong> Glisser (Swipe) vers le Haut / Bas / Gauche / Droite
+                <p>Cours, saute et glisse à travers le métro avec ton lama le plus stylé ! Édition spéciale de Maxence Dardenne 🌈</p>
+
+                <div class="total-coins-banner">
+                    🪙 <span id="menu-total-coins">0</span> pièces accumulées
                 </div>
-                <button class="btn" id="start-btn">Jouer</button>
+
+                <div class="menu-grid">
+                    <button class="btn" id="play-btn">▶️ Jouer</button>
+                    <button class="btn teal" id="rewards-btn">🏆 Récompenses</button>
+                    <button class="btn secondary" id="howto-btn">❓ Comment jouer</button>
+                </div>
             </div>
         </div>
 
+        <!-- ÉCRAN COMMENT JOUER -->
+        <div class="screen" id="howto-screen">
+            <div class="panel">
+                <div class="emoji-row">🎮</div>
+                <h1>Commandes</h1>
+                <div class="stats-container controls-box">
+                    <div class="label">💻 Sur ordinateur</div>
+                    Flèches directionnelles ou touches <strong>Z, Q, S, D</strong><br><br>
+                    <div class="label">📱 Sur mobile / tablette</div>
+                    Glisse (swipe) du doigt vers le <strong>Haut</strong> pour sauter, le <strong>Bas</strong> pour glisser, et <strong>Gauche / Droite</strong> pour changer de voie.<br><br>
+                    <div class="label">🎯 Objectif</div>
+                    Évite les trains, barrières et poteaux. Ramasse un maximum de pièces 🪙 et fonce le plus loin possible dans le métro !
+                </div>
+                <button class="btn secondary" id="howto-back-btn">⬅️ Retour au menu</button>
+            </div>
+        </div>
+
+        <!-- ÉCRAN RÉCOMPENSES -->
+        <div class="screen" id="rewards-screen">
+            <div class="panel">
+                <div class="emoji-row">🏆</div>
+                <h1>Récompenses</h1>
+                <p>Accumule des pièces en jouant pour débloquer de nouveaux statuts pour ton lama !</p>
+                <div class="total-coins-banner">
+                    🪙 <span id="rewards-total-coins">0</span> pièces au total
+                </div>
+                <div class="rewards-list" id="rewards-list"></div>
+                <button class="btn secondary" id="rewards-back-btn">⬅️ Retour au menu</button>
+            </div>
+        </div>
+
+        <!-- ÉCRAN PAUSE -->
+        <div class="screen" id="pause-screen">
+            <div class="panel">
+                <div class="emoji-row">⏸️</div>
+                <h1>Pause</h1>
+                <p>Ton lama reprend son souffle...</p>
+                <button class="btn" id="resume-btn">▶️ Reprendre</button>
+                <button class="btn secondary" id="quit-btn">🏠 Menu principal</button>
+            </div>
+        </div>
+
+        <!-- ÉCRAN GAME OVER -->
         <div class="screen" id="gameover-screen">
             <div class="panel">
-                <h1>Game Over</h1>
-                <p>Le garde vous a attrapé !</p>
+                <div class="emoji-row" id="gameover-emoji">🦙💥</div>
+                <h1>Oups !</h1>
+                <p id="gameover-msg">Le métro t'a rattrapé !</p>
                 <div class="stats-container">
                     <div class="stat-row">
                         <span>Score :</span>
                         <span id="final-score" style="color: var(--accent-color);">0</span>
                     </div>
                     <div class="stat-row">
-                        <span>Pièces :</span>
+                        <span>Pièces cette partie :</span>
                         <span id="final-coins" style="color: #FFD60A;">0</span>
                     </div>
+                    <div class="stat-row">
+                        <span>Total cumulé :</span>
+                        <span id="final-total-coins" style="color: #00C2A8;">0</span>
+                    </div>
                 </div>
-                <button class="btn" id="restart-btn">Recommencer</button>
+                <div class="badge-row" id="gameover-badges"></div>
+                <button class="btn" id="restart-btn">🔄 Recommencer</button>
+                <button class="btn secondary" id="gameover-menu-btn">🏠 Menu principal</button>
             </div>
         </div>
     </div>
@@ -239,29 +476,119 @@
 
         // Éléments d'interface
         const startScreen = document.getElementById('start-screen');
+        const howtoScreen = document.getElementById('howto-screen');
+        const rewardsScreen = document.getElementById('rewards-screen');
+        const pauseScreen = document.getElementById('pause-screen');
         const gameoverScreen = document.getElementById('gameover-screen');
-        const startBtn = document.getElementById('start-btn');
+
+        const playBtn = document.getElementById('play-btn');
+        const rewardsBtn = document.getElementById('rewards-btn');
+        const howtoBtn = document.getElementById('howto-btn');
+        const howtoBackBtn = document.getElementById('howto-back-btn');
+        const rewardsBackBtn = document.getElementById('rewards-back-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resumeBtn = document.getElementById('resume-btn');
+        const quitBtn = document.getElementById('quit-btn');
         const restartBtn = document.getElementById('restart-btn');
+        const gameoverMenuBtn = document.getElementById('gameover-menu-btn');
+
         const hudScore = document.getElementById('hud-score');
         const hudCoins = document.getElementById('hud-coins').querySelector('span');
         const finalScore = document.getElementById('final-score');
         const finalCoins = document.getElementById('final-coins');
+        const finalTotalCoins = document.getElementById('final-total-coins');
+        const menuTotalCoins = document.getElementById('menu-total-coins');
+        const rewardsTotalCoins = document.getElementById('rewards-total-coins');
+        const rewardsList = document.getElementById('rewards-list');
+        const gameoverBadges = document.getElementById('gameover-badges');
+        const rewardToast = document.getElementById('reward-toast');
 
         // --- PARAMÈTRES ET CONFIGURATION DE LA PERSPECTIVE 3D ---
+        // ⚠️ La géométrie des voies (lanes / laneSpacing / project3D) reste STRICTEMENT inchangée.
         const CONFIG = {
-            baseSpeed: 0.15,         // Vitesse initiale sur l'axe Z (profondeur)
-            maxSpeed: 0.45,         // Vitesse maximale
-            acceleration: 0.00005,  // Accélération par frame
-            gravity: 0.5,           // Force de gravité
-            lanes: [-1, 0, 1],      // Gauche, Milieu, Droite
-            laneSpacing: 160,       // Écartement réel des voies au premier plan
-            horizonY: 0.35,         // Position de la ligne d'horizon (35% du haut de l'écran)
-            cameraDepth: 0.9,       // Facteur d'ajustement de la perspective
+            baseSpeed: 0.15,
+            maxSpeed: 0.45,
+            acceleration: 0.00005,
+            gravity: 0.5,
+            lanes: [-1, 0, 1],
+            laneSpacing: 160,
+            horizonY: 0.35,
+            cameraDepth: 0.9,
         };
+
+        // --- SYSTÈME DE RÉCOMPENSES (paliers de pièces cumulées) ---
+        const REWARDS = [
+            { id: 'r1', threshold: 50,    icon: '🧣',  title: 'Écharpe Arc-en-ciel',  sub: '50 pièces cumulées' },
+            { id: 'r2', threshold: 150,   icon: '🕶️',  title: 'Lunettes Stylées',     sub: '150 pièces cumulées' },
+            { id: 'r3', threshold: 300,   icon: '👑',  title: 'Couronne Dorée',       sub: '300 pièces cumulées' },
+            { id: 'r4', threshold: 600,   icon: '🎒',  title: 'Sac à Dos Voyageur',   sub: '600 pièces cumulées' },
+            { id: 'r5', threshold: 1000,  icon: '🚀',  title: 'Fusée Turbo',          sub: '1000 pièces cumulées' },
+            { id: 'r6', threshold: 2000,  icon: '🌟',  title: 'Lama Légendaire',      sub: '2000 pièces cumulées' },
+        ];
+
+        function loadTotalCoins() {
+            return parseInt(localStorage.getItem('metroRushTotalCoins') || '0', 10);
+        }
+        function saveTotalCoins(val) {
+            localStorage.setItem('metroRushTotalCoins', String(val));
+        }
+        function loadUnlocked() {
+            try {
+                return JSON.parse(localStorage.getItem('metroRushUnlocked') || '[]');
+            } catch (e) { return []; }
+        }
+        function saveUnlocked(arr) {
+            localStorage.setItem('metroRushUnlocked', JSON.stringify(arr));
+        }
+
+        let totalCoins = loadTotalCoins();
+        let unlockedRewards = loadUnlocked();
+
+        function checkNewRewards(prevTotal, newTotal) {
+            const newlyUnlocked = [];
+            REWARDS.forEach(r => {
+                if (newTotal >= r.threshold && !unlockedRewards.includes(r.id)) {
+                    unlockedRewards.push(r.id);
+                    newlyUnlocked.push(r);
+                }
+            });
+            if (newlyUnlocked.length > 0) saveUnlocked(unlockedRewards);
+            return newlyUnlocked;
+        }
+
+        function renderRewardsList() {
+            rewardsList.innerHTML = '';
+            REWARDS.forEach(r => {
+                const unlocked = unlockedRewards.includes(r.id);
+                const div = document.createElement('div');
+                div.className = 'reward-item' + (unlocked ? ' unlocked' : '');
+                div.innerHTML = `
+                    <div class="reward-icon">${unlocked ? r.icon : '🔒'}</div>
+                    <div class="reward-text">
+                        <div class="reward-title">${r.title}</div>
+                        <div class="reward-sub">${r.sub}</div>
+                    </div>
+                    ${unlocked ? '<div class="reward-check">✅</div>' : ''}
+                `;
+                rewardsList.appendChild(div);
+            });
+        }
+
+        function refreshCoinDisplays() {
+            menuTotalCoins.innerText = totalCoins;
+            rewardsTotalCoins.innerText = totalCoins;
+        }
+
+        function showRewardToast(reward) {
+            rewardToast.innerText = `🎉 Récompense débloquée : ${reward.icon} ${reward.title} !`;
+            rewardToast.classList.add('show');
+            setTimeout(() => rewardToast.classList.remove('show'), 2600);
+        }
 
         // --- ÉTAT DU JEU ---
         let game = {
             running: false,
+            paused: false,
             speed: CONFIG.baseSpeed,
             distance: 0,
             score: 0,
@@ -269,20 +596,20 @@
             obstacles: [],
             coinsArray: [],
             particles: [],
+            buildings: [],
+            tunnels: [],
             lastSpawnTime: 0,
-            spawnInterval: 800
+            spawnInterval: 800,
+            nextBuildingZ: 8,
+            nextTunnelZ: 30,
         };
 
         // Fonction mathématique essentielle : Projette un point 3D (X, Y, Z) sur notre écran 2D
+        // ⚠️ INCHANGÉE — c'est elle qui garantit la disposition des rails
         function project3D(x3d, y3d, z3d) {
-            // z3d représente la distance par rapport au joueur (de 0 à l'infini)
-            if (z3d <= 0) z3d = 0.01; 
-            
-            // Calcul du facteur d'échelle basé sur la profondeur (Perspective linéaire)
+            if (z3d <= 0) z3d = 0.01;
             const scale = CONFIG.cameraDepth / z3d;
-            
             const horizonPixels = canvas.height * CONFIG.horizonY;
-            
             return {
                 x: (canvas.width / 2) + (x3d * scale),
                 y: horizonPixels + ((canvas.height - horizonPixels) * scale) - (y3d * scale),
@@ -290,31 +617,38 @@
             };
         }
 
-        // --- CLASSE DU JOUEUR ---
+        // --- CLASSE DU JOUEUR : UN LAMA 3D TRÈS COLORÉ 🦙 ---
         class Player {
             constructor() {
                 this.lane = 0;
                 this.targetX3D = 0;
-                this.x3d = 0; // Position 3D
-                this.y3d = 0; // Hauteur de saut
-                this.z3d = 1.2; // Placé juste devant la caméra (premier plan constant)
-                
+                this.x3d = 0;
+                this.y3d = 0;
+                this.z3d = 1.2;
+
                 this.vy = 0;
                 this.isJumping = false;
                 this.isSliding = false;
                 this.slideTimer = 0;
                 this.slideDuration = 30;
-                
-                this.width3D = 45;
-                this.height3D = 85;
+
+                this.width3D = 46;
+                this.height3D = 88;
+
+                this.bobTimer = 0;
+                this.legPhase = 0;
+
+                // Palette du pelage du lama : dégradé arc-en-ciel pastel vif
+                this.woolColors = ['#FF6B9D', '#FFC93C', '#6BCB77', '#4D96FF', '#C780FA'];
             }
 
             update() {
-                // Déplacement latéral fluide
                 this.targetX3D = this.lane * CONFIG.laneSpacing;
                 this.x3d += (this.targetX3D - this.x3d) * 0.25;
 
-                // Gestion physique du saut
+                this.bobTimer += 0.25;
+                this.legPhase += game.speed * 18;
+
                 if (this.isJumping) {
                     this.vy -= CONFIG.gravity;
                     this.y3d += this.vy;
@@ -325,7 +659,6 @@
                     }
                 }
 
-                // Gestion physique de la glissade
                 if (this.isSliding) {
                     this.slideTimer--;
                     if (this.slideTimer <= 0) {
@@ -335,36 +668,103 @@
             }
 
             draw() {
-                // Projection 3D du joueur vers l'écran
                 const p = project3D(this.x3d, this.y3d, this.z3d);
-                
+
                 const w = this.width3D * p.scale;
                 let h = this.height3D * p.scale;
-                if (this.isSliding) h *= 0.5; // Hitbox visuelle réduite lors d'un slide
+                if (this.isSliding) h *= 0.55;
+
+                const bob = Math.sin(this.bobTimer) * 2 * p.scale;
 
                 ctx.save();
 
-                // Ombre au sol
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                // Ombre portée au sol
+                const groundP = project3D(this.x3d, 0, this.z3d);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
                 ctx.beginPath();
-                ctx.ellipse(p.x, project3D(this.x3d, 0, this.z3d).y, w * 0.6, h * 0.1, 0, 0, Math.PI * 2);
+                ctx.ellipse(groundP.x, groundP.y, w * 0.55, h * 0.09, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Corps (Design dynamique "Streetwear" inspiré du style de Jake dans Subway Surfers)
-                ctx.fillStyle = '#FF5E00'; // Veste orange fluo
+                const baseX = p.x;
+                const baseY = p.y + bob;
+
+                // --- PATTES (alternance de marche) ---
+                const legW = w * 0.14;
+                const legH = h * 0.32;
+                const legSwing = Math.sin(this.legPhase) * (h * 0.05);
+                ctx.fillStyle = '#3A2E26';
+                ctx.fillRect(baseX - w * 0.32, baseY - legH + legSwing, legW, legH);
+                ctx.fillRect(baseX + w * 0.18, baseY - legH - legSwing, legW, legH);
+
+                // --- CORPS (laine colorée arrondie) ---
+                const bodyH = h * 0.62;
+                const bodyTop = baseY - legH - bodyH * 0.78;
+                const bodyGrad = ctx.createLinearGradient(baseX - w/2, bodyTop, baseX + w/2, bodyTop + bodyH);
+                bodyGrad.addColorStop(0, this.woolColors[0]);
+                bodyGrad.addColorStop(0.5, this.woolColors[2]);
+                bodyGrad.addColorStop(1, this.woolColors[3]);
+                ctx.fillStyle = bodyGrad;
                 ctx.beginPath();
-                ctx.roundRect(p.x - w / 2, p.y - h, w, h, [12 * p.scale, 12 * p.scale, 4 * p.scale, 4 * p.scale]);
+                ctx.roundRect(baseX - w / 2, bodyTop, w, bodyH, [w*0.35, w*0.35, w*0.2, w*0.2]);
                 ctx.fill();
 
-                // Casquette / Tête
-                ctx.fillStyle = '#007AFF'; // Casquette bleue branchée
+                // Pompons de laine décoratifs sur le corps
+                const poms = [this.woolColors[1], this.woolColors[4], this.woolColors[0]];
+                for (let i = 0; i < 3; i++) {
+                    ctx.fillStyle = poms[i];
+                    ctx.beginPath();
+                    ctx.arc(baseX - w*0.22 + i * (w*0.22), bodyTop + bodyH*0.45, w*0.09, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                // --- COU + TÊTE (long cou caractéristique du lama) ---
+                const neckW = w * 0.34;
+                const neckH = h * 0.42;
+                const neckX = baseX - neckW/2 + w*0.08;
+                const neckTop = bodyTop - neckH * 0.85;
+                ctx.fillStyle = this.woolColors[3];
                 ctx.beginPath();
-                ctx.roundRect(p.x - w / 2.5, p.y - h, (w / 2.5) * 2, h * 0.25, [8 * p.scale, 8 * p.scale, 2 * p.scale, 2 * p.scale]);
+                ctx.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.15, neckW*0.15]);
                 ctx.fill();
 
-                // Visière de la casquette
+                // Tête
+                const headW = w * 0.46;
+                const headH = h * 0.26;
+                const headX = neckX + neckW/2 - headW/2;
+                const headTop = neckTop - headH * 0.8;
+                ctx.fillStyle = '#FFF6E9';
+                ctx.beginPath();
+                ctx.roundRect(headX, headTop, headW, headH, headW*0.32);
+                ctx.fill();
+
+                // Museau
+                ctx.fillStyle = '#FFE0C2';
+                ctx.beginPath();
+                ctx.roundRect(headX + headW*0.55, headTop + headH*0.4, headW*0.55, headH*0.5, headW*0.18);
+                ctx.fill();
+
+                // Oreilles (caractéristiques du lama : longues et dressées)
+                ctx.fillStyle = this.woolColors[1];
+                ctx.beginPath();
+                ctx.ellipse(headX + headW*0.18, headTop - headH*0.18, headW*0.1, headH*0.32, -0.2, 0, Math.PI*2);
+                ctx.ellipse(headX + headW*0.42, headTop - headH*0.2, headW*0.1, headH*0.34, 0.1, 0, Math.PI*2);
+                ctx.fill();
+
+                // Yeux mignons
                 ctx.fillStyle = '#1C1C1E';
-                ctx.fillRect(p.x - w / 4, p.y - h + (h * 0.08), w * 0.7, h * 0.05);
+                ctx.beginPath();
+                ctx.arc(headX + headW*0.32, headTop + headH*0.42, headW*0.06, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(headX + headW*0.34, headTop + headH*0.39, headW*0.02, 0, Math.PI*2);
+                ctx.fill();
+
+                // Naseaux
+                ctx.fillStyle = '#D98E5F';
+                ctx.beginPath();
+                ctx.arc(headX + headW*0.95, headTop + headH*0.65, headW*0.035, 0, Math.PI*2);
+                ctx.fill();
 
                 ctx.restore();
             }
@@ -387,38 +787,45 @@
 
         let player = new Player();
 
-        // --- CLASSE DES OBSTACLES SUBWAY ---
+        // --- CLASSE DES OBSTACLES SUBWAY (trains et wagons enrichis en 3D) ---
         class Obstacle {
             constructor() {
                 this.lane = CONFIG.lanes[Math.floor(Math.random() * CONFIG.lanes.length)];
                 this.x3d = this.lane * CONFIG.laneSpacing;
                 this.y3d = 0;
-                this.z3d = 20; // Apparaît très loin à l'horizon
-                
+                this.z3d = 20;
+
                 const types = ['barrier', 'train', 'lightpole'];
                 this.type = types[Math.floor(Math.random() * types.length)];
-                
-                // Dimensions de base dans l'espace virtuel 3D
+
                 this.width3D = 60;
                 this.height3D = 50;
 
                 if (this.type === 'train') {
-                    this.height3D = 140;
-                    this.width3D = 90;
+                    this.height3D = 145;
+                    this.width3D = 95;
+                    this.depth3D = 220; // longueur du wagon sur l'axe Z, pour la silhouette latérale
+                    const wagonPalettes = [
+                        { body: '#FF5E8A', stripe: '#FFD60A', roof: '#E0457A' },
+                        { body: '#4D96FF', stripe: '#FFFFFF', roof: '#2C6FE0' },
+                        { body: '#6BCB77', stripe: '#FFD60A', roof: '#4DA858' },
+                        { body: '#C780FA', stripe: '#FFFFFF', roof: '#A35EDB' },
+                    ];
+                    this.palette = wagonPalettes[Math.floor(Math.random() * wagonPalettes.length)];
                 } else if (this.type === 'lightpole') {
                     this.height3D = 160;
                     this.width3D = 20;
-                    this.laneOffset = (Math.random() > 0.5 ? 40 : -40); // Décale le poteau sur le bord de la voie
+                    this.laneOffset = (Math.random() > 0.5 ? 40 : -40);
                     this.x3d += this.laneOffset;
                 }
             }
 
             update() {
-                this.z3d -= game.speed; // Avance vers la caméra (le joueur)
+                this.z3d -= game.speed;
             }
 
             draw() {
-                if (this.z3d < CONFIG.cameraDepth) return; // Ne pas dessiner si dépassé en arrière plan
+                if (this.z3d < CONFIG.cameraDepth) return;
 
                 const p = project3D(this.x3d, this.y3d, this.z3d);
                 const w = this.width3D * p.scale;
@@ -427,34 +834,71 @@
                 ctx.save();
 
                 if (this.type === 'barrier') {
-                    // Barrière de chantier Subway (Rouge et blanche)
                     ctx.fillStyle = '#FF3B30';
                     ctx.fillRect(p.x - w/2, p.y - h, w, h);
-                    
+
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(p.x - w/2, p.y - h + (h*0.25), w, h*0.25);
                     ctx.fillRect(p.x - w/2, p.y - h + (h*0.65), w, h*0.15);
 
-                    // Pieds
                     ctx.fillStyle = '#1C1C1E';
                     ctx.fillRect(p.x - w/2, p.y - (h*0.1), w*0.1, h*0.1);
                     ctx.fillRect(p.x + w/2 - (w*0.1), p.y - (h*0.1), w*0.1, h*0.1);
-                } 
+                }
                 else if (this.type === 'train') {
-                    // Wagon de Métro complet en perspective
-                    ctx.fillStyle = '#007AFF'; // Couleur de rame bleue intense
+                    const pal = this.palette;
+                    const sideShift = (this.x3d > 0 ? 1 : (this.x3d < 0 ? -1 : 0));
+
+                    // Face "côté" du wagon (effet de profondeur 3D via parallélogramme décalé)
+                    const skew = w * 0.22 * (sideShift === 0 ? 0.6 : sideShift);
+                    ctx.fillStyle = shadeColor(pal.body, -18);
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + w/2, p.y - h);
+                    ctx.lineTo(p.x + w/2 + skew, p.y - h*0.9 - h*0.05);
+                    ctx.lineTo(p.x + w/2 + skew, p.y - h*0.05);
+                    ctx.lineTo(p.x + w/2, p.y);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Toit du wagon (volume supérieur incliné)
+                    ctx.fillStyle = pal.roof;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - w/2, p.y - h);
+                    ctx.lineTo(p.x + w/2, p.y - h);
+                    ctx.lineTo(p.x + w/2 + skew, p.y - h*0.9 - h*0.05);
+                    ctx.lineTo(p.x - w/2 + skew*0.4, p.y - h*1.05);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Face avant principale du wagon
+                    ctx.fillStyle = pal.body;
                     ctx.beginPath();
                     ctx.roundRect(p.x - w/2, p.y - h, w, h, [15 * p.scale, 15 * p.scale, 0, 0]);
                     ctx.fill();
 
-                    // Bandes jaunes sur le train
-                    ctx.fillStyle = '#FFCC00';
+                    // Bande colorée
+                    ctx.fillStyle = pal.stripe;
                     ctx.fillRect(p.x - w/2, p.y - h + (h * 0.7), w, h * 0.08);
+
+                    // Fenêtres éclairées (rangée du dessus, façon vrai wagon)
+                    ctx.fillStyle = '#FFF6C9';
+                    ctx.shadowBlur = 8 * p.scale;
+                    ctx.shadowColor = '#FFF6C9';
+                    const winCount = 3;
+                    const winW = w * 0.18;
+                    const winH = h * 0.16;
+                    for (let i = 0; i < winCount; i++) {
+                        const wx = p.x - w/2 + w*0.12 + i * (w*0.32);
+                        ctx.beginPath();
+                        ctx.roundRect(wx, p.y - h + h*0.18, winW, winH, 3 * p.scale);
+                        ctx.fill();
+                    }
+                    ctx.shadowBlur = 0;
 
                     // Pare-brise avant noir
                     ctx.fillStyle = '#1C1C1E';
                     ctx.beginPath();
-                    ctx.roundRect(p.x - w/2.5, p.y - h + (h*0.1), (w/2.5)*2, h*0.3, 4);
+                    ctx.roundRect(p.x - w/2.5, p.y - h + (h*0.1), (w/2.5)*2, h*0.12, 4);
                     ctx.fill();
 
                     // Phares lumineux du train
@@ -462,20 +906,26 @@
                     ctx.shadowBlur = 20 * p.scale;
                     ctx.shadowColor = '#FFD60A';
                     ctx.beginPath();
-                    ctx.arc(p.x - w/3, p.y - h + (h * 0.55), 6 * p.scale, 0, Math.PI * 2);
-                    ctx.arc(p.x + w/3, p.y - h + (h * 0.55), 6 * p.scale, 0, Math.PI * 2);
+                    ctx.arc(p.x - w/3, p.y - h*0.06, 6 * p.scale, 0, Math.PI * 2);
+                    ctx.arc(p.x + w/3, p.y - h*0.06, 6 * p.scale, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Roues visibles au bas du wagon
+                    ctx.fillStyle = '#1C1C1E';
+                    ctx.beginPath();
+                    ctx.arc(p.x - w*0.28, p.y - h*0.02, w*0.06, 0, Math.PI*2);
+                    ctx.arc(p.x + w*0.28, p.y - h*0.02, w*0.06, 0, Math.PI*2);
                     ctx.fill();
                 }
                 else if (this.type === 'lightpole') {
-                    // Poteau de signalisation ferroviaire complexe
                     ctx.fillStyle = '#3A3A3C';
                     ctx.fillRect(p.x - w/2, p.y - h, w, h);
 
-                    // Feu de signalisation au sommet
                     ctx.fillStyle = '#1C1C1E';
                     ctx.fillRect(p.x - w, p.y - h, w*2, h*0.25);
 
-                    ctx.fillStyle = '#FF3B30'; // Alerte rouge fixe
+                    ctx.fillStyle = '#FF3B30';
                     ctx.beginPath();
                     ctx.arc(p.x, p.y - h + (h*0.125), 5 * p.scale, 0, Math.PI * 2);
                     ctx.fill();
@@ -485,13 +935,25 @@
             }
         }
 
+        // Utilitaire : assombrit/éclaircit une couleur hex pour les effets de volume 3D
+        function shadeColor(hex, percent) {
+            let num = parseInt(hex.replace('#',''), 16);
+            let r = (num >> 16) + percent;
+            let g = ((num >> 8) & 0x00FF) + percent;
+            let b = (num & 0x0000FF) + percent;
+            r = Math.max(Math.min(255, r), 0);
+            g = Math.max(Math.min(255, g), 0);
+            b = Math.max(Math.min(255, b), 0);
+            return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+        }
+
         // --- CLASSE DES PIÈCES DE MONNAIE MAGIQUES (COINS) ---
         class Coin {
             constructor(lane, zOffset = 0) {
                 this.lane = lane;
                 this.x3d = this.lane * CONFIG.laneSpacing;
-                this.y3d = 30; // Légèrement surélevées pour inciter à sauter
-                this.z3d = 20 + zOffset; 
+                this.y3d = 30;
+                this.z3d = 20 + zOffset;
                 this.size3D = 18;
                 this.angle = Math.random() * Math.PI;
             }
@@ -509,7 +971,7 @@
 
                 ctx.save();
                 ctx.translate(p.x, p.y);
-                ctx.scale(Math.sin(this.angle), 1); // Effet rotation tridimensionnelle
+                ctx.scale(Math.sin(this.angle), 1);
 
                 ctx.fillStyle = '#FFD60A';
                 ctx.shadowBlur = 15 * p.scale;
@@ -518,12 +980,170 @@
                 ctx.arc(0, 0, size, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Relief intérieur de la pièce Subway
                 ctx.strokeStyle = '#FF9500';
                 ctx.lineWidth = 2 * p.scale;
                 ctx.beginPath();
                 ctx.arc(0, 0, size * 0.6, 0, Math.PI * 2);
                 ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // --- CLASSE DES BÂTIMENTS 3D (remplace le thème sombre vide) ---
+        class Building {
+            constructor(side, z) {
+                this.side = side; // -1 gauche, 1 droite
+                this.x3d = side * (420 + Math.random() * 160);
+                this.y3d = 0;
+                this.z3d = z;
+                this.width3D = 140 + Math.random() * 90;
+                this.height3D = 220 + Math.random() * 320;
+                this.depth3D = 200;
+
+                const palettes = [
+                    { wall: '#FF8FB1', wallDark: '#E0688E', win: '#FFF3B0' },
+                    { wall: '#7FD8C4', wallDark: '#4FB39C', win: '#FFE08A' },
+                    { wall: '#8FB6FF', wallDark: '#5C8DE0', win: '#FFD27A' },
+                    { wall: '#FFC56B', wallDark: '#E0A04C', win: '#FFFFFF' },
+                    { wall: '#C9A0FF', wallDark: '#A074E0', win: '#FFF3B0' },
+                ];
+                this.palette = palettes[Math.floor(Math.random() * palettes.length)];
+                this.winRows = 3 + Math.floor(Math.random() * 4);
+                this.winCols = 2 + Math.floor(Math.random() * 2);
+            }
+
+            update() {
+                this.z3d -= game.speed;
+            }
+
+            draw() {
+                if (this.z3d < CONFIG.cameraDepth) return;
+
+                const baseP = project3D(this.x3d, this.y3d, this.z3d);
+                const topP = project3D(this.x3d, this.height3D, this.z3d);
+                const w = this.width3D * baseP.scale;
+                const sideSkew = this.side * w * 0.35;
+
+                ctx.save();
+
+                // Face latérale (volume 3D)
+                ctx.fillStyle = this.palette.wallDark;
+                ctx.beginPath();
+                ctx.moveTo(baseP.x + this.side * w/2, baseP.y);
+                ctx.lineTo(baseP.x + this.side * w/2 + sideSkew, baseP.y - 10 * baseP.scale);
+                ctx.lineTo(topP.x + this.side * w/2 + sideSkew, topP.y - 10 * baseP.scale);
+                ctx.lineTo(topP.x + this.side * w/2, topP.y);
+                ctx.closePath();
+                ctx.fill();
+
+                // Façade principale
+                ctx.fillStyle = this.palette.wall;
+                ctx.fillRect(baseP.x - w/2, topP.y, w, baseP.y - topP.y);
+
+                // Toit plat coloré
+                ctx.fillStyle = shadeColor(this.palette.wall, 25);
+                ctx.fillRect(baseP.x - w/2, topP.y - 6 * baseP.scale, w, 6 * baseP.scale);
+
+                // Fenêtres allumées en grille (donne le volume habité)
+                const winW = (w / this.winCols) * 0.5;
+                const winH = ((baseP.y - topP.y) / this.winRows) * 0.45;
+                ctx.fillStyle = this.palette.win;
+                for (let row = 0; row < this.winRows; row++) {
+                    for (let col = 0; col < this.winCols; col++) {
+                        const wx = baseP.x - w/2 + (col + 0.5) * (w / this.winCols) - winW/2;
+                        const wy = topP.y + (row + 0.5) * ((baseP.y - topP.y) / this.winRows) - winH/2;
+                        ctx.fillRect(wx, wy, winW, winH);
+                    }
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // --- CLASSE DES TUNNELS 3D (arches périodiques) ---
+        class Tunnel {
+            constructor(z) {
+                this.z3d = z;
+                this.length3D = 14; // longueur du tunnel sur l'axe Z
+                this.archColor = `hsl(${200 + Math.random()*60}, 55%, 35%)`;
+                this.archColorDark = `hsl(${200 + Math.random()*60}, 55%, 18%)`;
+            }
+
+            update() {
+                this.z3d -= game.speed;
+            }
+
+            get exitZ() {
+                return this.z3d - this.length3D;
+            }
+
+            draw() {
+                if (this.exitZ > 22 || this.z3d < CONFIG.cameraDepth - this.length3D) return;
+
+                // Arche d'entrée (la plus lointaine encore visible)
+                this.drawArch(this.z3d, 1);
+                // Arche de sortie (plus proche)
+                if (this.exitZ > CONFIG.cameraDepth) {
+                    this.drawArch(this.exitZ, 0.85);
+                }
+
+                // Plafond du tunnel reliant les deux arches (assombrit le décor entre elles)
+                const farTop = project3D(0, 280, Math.max(this.z3d, CONFIG.cameraDepth));
+                const nearTop = project3D(0, 280, Math.max(this.exitZ, CONFIG.cameraDepth));
+                const farL = project3D(-260, 0, Math.max(this.z3d, CONFIG.cameraDepth));
+                const nearL = project3D(-260, 0, Math.max(this.exitZ, CONFIG.cameraDepth));
+                const farR = project3D(260, 0, Math.max(this.z3d, CONFIG.cameraDepth));
+                const nearR = project3D(260, 0, Math.max(this.exitZ, CONFIG.cameraDepth));
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(8, 12, 28, 0.55)';
+                ctx.beginPath();
+                ctx.moveTo(farL.x, farL.y);
+                ctx.lineTo(farTop.x, farTop.y);
+                ctx.lineTo(farR.x, farR.y);
+                ctx.lineTo(nearR.x, nearR.y);
+                ctx.lineTo(nearTop.x, nearTop.y);
+                ctx.lineTo(nearL.x, nearL.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawArch(z, alpha) {
+                const clampedZ = Math.max(z, CONFIG.cameraDepth);
+                const baseL = project3D(-260, 0, clampedZ);
+                const baseR = project3D(260, 0, clampedZ);
+                const topL = project3D(-260, 260, clampedZ);
+                const topR = project3D(260, 260, clampedZ);
+                const apex = project3D(0, 360, clampedZ);
+
+                ctx.save();
+                ctx.globalAlpha = alpha;
+
+                // Structure extérieure de l'arche (briques colorées)
+                ctx.fillStyle = this.archColorDark;
+                ctx.beginPath();
+                ctx.moveTo(baseL.x, baseL.y);
+                ctx.lineTo(topL.x, topL.y);
+                ctx.quadraticCurveTo(apex.x, apex.y, topR.x, topR.y);
+                ctx.lineTo(baseR.x, baseR.y);
+                ctx.lineTo(baseR.x - 18*baseR.scale, baseR.y);
+                ctx.lineTo(topR.x - 18*baseR.scale, topR.y + 8*baseR.scale);
+                ctx.quadraticCurveTo(apex.x, apex.y + 22*baseR.scale, topL.x + 18*baseR.scale, topL.y + 8*baseR.scale);
+                ctx.lineTo(baseL.x + 18*baseR.scale, baseL.y);
+                ctx.closePath();
+                ctx.fill();
+
+                // Intérieur sombre du tunnel (perspective d'obscurité)
+                ctx.fillStyle = this.archColor;
+                ctx.beginPath();
+                ctx.moveTo(baseL.x + 18*baseR.scale, baseL.y);
+                ctx.lineTo(topL.x + 18*baseR.scale, topL.y + 8*baseR.scale);
+                ctx.quadraticCurveTo(apex.x, apex.y + 22*baseR.scale, topR.x - 18*baseR.scale, topR.y + 8*baseR.scale);
+                ctx.lineTo(baseR.x - 18*baseR.scale, baseR.y);
+                ctx.closePath();
+                ctx.fill();
 
                 ctx.restore();
             }
@@ -552,14 +1172,14 @@
 
         // --- CONTRÔLES COMPLETS (RESPONSIVE PC & SWIPE MOBILE) ---
         function resizeCanvas() {
-            canvas.width = Math.min(window.innerWidth, 480); // Format vertical smartphone strict type Subway
+            canvas.width = Math.min(window.innerWidth, 480);
             canvas.height = window.innerHeight;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
         window.addEventListener('keydown', (e) => {
-            if (!game.running) return;
+            if (!game.running || game.paused) return;
             if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') player.moveLeft();
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') player.moveRight();
             if (e.key === 'ArrowUp' || e.key === 'z' || e.key === 'Z') player.jump();
@@ -572,7 +1192,7 @@
         }, { passive: true });
 
         window.addEventListener('touchend', (e) => {
-            if (!game.running) return;
+            if (!game.running || game.paused) return;
             let diffX = e.changedTouches[0].clientX - touchStartX;
             let diffY = e.changedTouches[0].clientY - touchStartY;
             if (Math.abs(diffX) > Math.abs(diffY)) {
@@ -586,56 +1206,92 @@
         function drawEnvironment() {
             const horizonY = canvas.height * CONFIG.horizonY;
 
-            // Ciel de fin de journée dégradé néon
+            // Ciel coloré de fin de journée (remplace le ton sombre uniforme)
             let skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-            skyGrad.addColorStop(0, '#05070f');
-            skyGrad.addColorStop(1, '#191330');
+            skyGrad.addColorStop(0, '#3a5fb8');
+            skyGrad.addColorStop(0.55, '#7a8fd9');
+            skyGrad.addColorStop(1, '#ffd9a0');
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, 0, canvas.width, horizonY);
 
+            // Soleil/lune doux à l'horizon
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 235, 180, 0.9)';
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = 'rgba(255, 235, 180, 0.8)';
+            ctx.beginPath();
+            ctx.arc(canvas.width * 0.78, horizonY * 0.62, 34, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
             // Sol de la zone ferroviaire
-            ctx.fillStyle = '#0f111a';
+            ctx.fillStyle = '#2a3358';
             ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
 
-            // Tracé géométrique 3D des rails convergents vers l'horizon
+            // --- BÂTIMENTS 3D (skyline colorée en fond) ---
+            game.buildings.sort((a, b) => b.z3d - a.z3d);
+            for (let i = game.buildings.length - 1; i >= 0; i--) {
+                let b = game.buildings[i];
+                b.update();
+                b.draw();
+                if (b.z3d < CONFIG.cameraDepth - 5) game.buildings.splice(i, 1);
+            }
+            if (game.buildings.length === 0 || game.nextBuildingZ <= 24) {
+                game.buildings.push(new Building(-1, game.nextBuildingZ));
+                game.buildings.push(new Building(1, game.nextBuildingZ + (Math.random()*4 - 2)));
+                game.nextBuildingZ += 7 + Math.random() * 3;
+            }
+            game.nextBuildingZ -= game.speed;
+
+            // Tracé géométrique 3D des rails convergents vers l'horizon — INCHANGÉ
             CONFIG.lanes.forEach(lane => {
                 const farLeft = project3D((lane * CONFIG.laneSpacing) - 35, 0, 20);
                 const farRight = project3D((lane * CONFIG.laneSpacing) + 35, 0, 20);
                 const nearLeft = project3D((lane * CONFIG.laneSpacing) - 45, 0, CONFIG.cameraDepth);
                 const nearRight = project3D((lane * CONFIG.laneSpacing) + 45, 0, CONFIG.cameraDepth);
 
-                // Couleur du ballast (lit de pierres sous les rails)
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
                 ctx.beginPath();
                 ctx.moveTo(farLeft.x, farLeft.y); ctx.lineTo(farRight.x, farRight.y);
                 ctx.lineTo(nearRight.x, nearRight.y); ctx.lineTo(nearLeft.x, nearLeft.y);
                 ctx.closePath();
                 ctx.fill();
 
-                // Ligne de rail gauche
-                ctx.strokeStyle = '#4e556e';
+                ctx.strokeStyle = '#C9CEDE';
                 ctx.lineWidth = 3;
                 ctx.beginPath(); ctx.moveTo(farLeft.x, farLeft.y); ctx.lineTo(nearLeft.x, nearLeft.y); ctx.stroke();
 
-                // Ligne de rail droite
                 ctx.beginPath(); ctx.moveTo(farRight.x, farRight.y); ctx.lineTo(nearRight.x, nearRight.y); ctx.stroke();
 
-                // Traverses en bois au sol espacées (Simulation du mouvement 3D linéaire)
-                ctx.strokeStyle = 'rgba(255, 149, 0, 0.1)';
+                ctx.strokeStyle = 'rgba(255, 149, 0, 0.18)';
                 ctx.lineWidth = 4;
                 for (let z = 1; z < 20; z += 1.5) {
                     let dynamicZ = z - (game.distance % 1.5);
                     if (dynamicZ < CONFIG.cameraDepth) continue;
-                    
+
                     let tLeft = project3D((lane * CONFIG.laneSpacing) - 40, 0, dynamicZ);
                     let tRight = project3D((lane * CONFIG.laneSpacing) + 40, 0, dynamicZ);
-                    
+
                     ctx.beginPath();
                     ctx.moveTo(tLeft.x, tLeft.y);
                     ctx.lineTo(tRight.x, tRight.y);
                     ctx.stroke();
                 }
             });
+
+            // --- TUNNELS 3D (arches périodiques) ---
+            game.tunnels.sort((a, b) => b.z3d - a.z3d);
+            for (let i = game.tunnels.length - 1; i >= 0; i--) {
+                let t = game.tunnels[i];
+                t.update();
+                t.draw();
+                if (t.exitZ < CONFIG.cameraDepth - 6) game.tunnels.splice(i, 1);
+            }
+            game.nextTunnelZ -= game.speed;
+            if (game.nextTunnelZ <= 22) {
+                game.tunnels.push(new Tunnel(game.nextTunnelZ + 14));
+                game.nextTunnelZ = 60 + Math.random() * 30;
+            }
         }
 
         // --- GÉNÉRATEUR SPATIAL PROCÉDURAL ---
@@ -646,7 +1302,7 @@
                 } else {
                     let lane = CONFIG.lanes[Math.floor(Math.random() * CONFIG.lanes.length)];
                     for (let i = 0; i < 4; i++) {
-                        game.coinsArray.push(new Coin(lane, i * 1.8)); // Espacement progressif sur l'axe Z
+                        game.coinsArray.push(new Coin(lane, i * 1.8));
                     }
                 }
                 game.lastSpawnTime = timestamp;
@@ -654,15 +1310,12 @@
             }
         }
 
-        // --- MODULE DE COLLISION AXIAL TRIDIMENSIONNEL (FIABLE) ---
+        // --- MODULE DE COLLISION AXIAL TRIDIMENSIONNEL (FIABLE) — INCHANGÉ ---
         function checkCollisions() {
-            // 1. Détection des Pièces (Coins)
             for (let i = game.coinsArray.length - 1; i >= 0; i--) {
                 let c = game.coinsArray[i];
-                
-                // Test de proximité absolue sur la profondeur (axe Z) et la voie
+
                 if (Math.abs(c.z3d - player.z3d) < 0.25 && c.lane === player.lane) {
-                    // Test de hauteur (Saut suffisant ou non)
                     if (player.y3d + player.height3D >= c.y3d - c.size3D) {
                         game.coins++;
                         game.score += 60;
@@ -675,22 +1328,19 @@
                 }
             }
 
-            // 2. Détection des Obstacles
             for (let o of game.obstacles) {
-                // Vérification si l'obstacle est au même niveau de profondeur Z que la boite de collision du joueur
                 if (Math.abs(o.z3d - player.z3d) < 0.22 && o.lane === player.lane) {
-                    
+
                     if (o.type === 'barrier' && player.isSliding) {
-                        continue; // Passe en-dessous de la barrière haute
+                        continue;
                     }
                     if (o.type === 'lightpole') {
-                        continue; // Le poteau est sur le côté, pas d'impact frontal
+                        continue;
                     }
                     if (o.type === 'barrier' && player.isJumping && player.y3d > o.height3D * 0.7) {
-                        continue; // Saute par dessus la barrière basse
+                        continue;
                     }
 
-                    // Collision fatale détectée
                     gameOver();
                     break;
                 }
@@ -700,6 +1350,7 @@
         // --- GAMELOOP PRINCIPALE ---
         function gameLoop(timestamp) {
             if (!game.running) return;
+            if (game.paused) { requestAnimationFrame(gameLoop); return; }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -714,8 +1365,6 @@
             generateWorld(timestamp);
             drawEnvironment();
 
-            // Tri pour afficher d'abord les objets les plus lointains (Z important)
-            // Évite les erreurs de superposition graphique (Painter's algorithm)
             game.obstacles.sort((a, b) => b.z3d - a.z3d);
             game.coinsArray.sort((a, b) => b.z3d - a.z3d);
 
@@ -750,26 +1399,106 @@
         function resetGame() {
             game.speed = CONFIG.baseSpeed; game.distance = 0; game.score = 0; game.coins = 0;
             game.obstacles = []; game.coinsArray = []; game.particles = [];
+            game.buildings = []; game.tunnels = [];
+            game.nextBuildingZ = 8; game.nextTunnelZ = 30;
             game.lastSpawnTime = performance.now(); game.spawnInterval = 800;
+            game.paused = false;
             player = new Player();
             hudScore.innerText = "SCORE: 0"; hudCoins.innerText = "0";
         }
 
+        function hideAllScreens() {
+            [startScreen, howtoScreen, rewardsScreen, pauseScreen, gameoverScreen].forEach(s => s.classList.remove('active'));
+        }
+
         function startGame() {
             resetGame();
-            startScreen.classList.remove('active'); gameoverScreen.classList.remove('active');
+            hideAllScreens();
             game.running = true;
             requestAnimationFrame(gameLoop);
         }
 
         function gameOver() {
             game.running = false;
-            finalScore.innerText = game.score; finalCoins.innerText = game.coins;
+
+            const prevTotal = totalCoins;
+            totalCoins += game.coins;
+            saveTotalCoins(totalCoins);
+
+            finalScore.innerText = game.score;
+            finalCoins.innerText = game.coins;
+            finalTotalCoins.innerText = totalCoins;
+
+            const newlyUnlocked = checkNewRewards(prevTotal, totalCoins);
+            gameoverBadges.innerHTML = '';
+            newlyUnlocked.forEach(r => {
+                const pill = document.createElement('div');
+                pill.className = 'badge-pill';
+                pill.innerText = `${r.icon} ${r.title}`;
+                gameoverBadges.appendChild(pill);
+            });
+            if (newlyUnlocked.length > 0) {
+                showRewardToast(newlyUnlocked[newlyUnlocked.length - 1]);
+            }
+
+            refreshCoinDisplays();
+            renderRewardsList();
+
+            hideAllScreens();
             gameoverScreen.classList.add('active');
         }
 
-        startBtn.addEventListener('click', startGame);
+        // --- NAVIGATION DU MENU ---
+        playBtn.addEventListener('click', startGame);
         restartBtn.addEventListener('click', startGame);
+
+        rewardsBtn.addEventListener('click', () => {
+            refreshCoinDisplays();
+            renderRewardsList();
+            hideAllScreens();
+            rewardsScreen.classList.add('active');
+        });
+        rewardsBackBtn.addEventListener('click', () => {
+            hideAllScreens();
+            startScreen.classList.add('active');
+        });
+
+        howtoBtn.addEventListener('click', () => {
+            hideAllScreens();
+            howtoScreen.classList.add('active');
+        });
+        howtoBackBtn.addEventListener('click', () => {
+            hideAllScreens();
+            startScreen.classList.add('active');
+        });
+
+        gameoverMenuBtn.addEventListener('click', () => {
+            hideAllScreens();
+            refreshCoinDisplays();
+            startScreen.classList.add('active');
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (!game.running) return;
+            game.paused = true;
+            hideAllScreens();
+            pauseScreen.classList.add('active');
+        });
+        resumeBtn.addEventListener('click', () => {
+            game.paused = false;
+            hideAllScreens();
+        });
+        quitBtn.addEventListener('click', () => {
+            game.running = false;
+            game.paused = false;
+            hideAllScreens();
+            refreshCoinDisplays();
+            startScreen.classList.add('active');
+        });
+
+        // --- INITIALISATION DE L'ACCUEIL ---
+        refreshCoinDisplays();
+        renderRewardsList();
     </script>
 </body>
 </html>
