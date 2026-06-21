@@ -805,6 +805,48 @@
             };
         }
 
+        // --- OUTILS DE RENDU RÉALISTE (texture, volume, ombrage) ---
+
+        // Touffes de poils courtes orientées, tracées en éventail pour suggérer une vraie fourrure.
+        // baseColor/darkColor/lightColor permettent un dégradé de teinte poil à poil.
+        function drawFurPatch(c, cx, cy, count, length, spread, angleBase, darkColor, lightColor) {
+            for (let i = 0; i < count; i++) {
+                const t = i / count;
+                const a = angleBase + (t - 0.5) * spread;
+                const len = length * (0.7 + Math.random() * 0.5);
+                const sx = cx + Math.cos(angleBase + Math.PI/2) * (t - 0.5) * spread * length * 2.2;
+                const sy = cy + Math.sin(angleBase + Math.PI/2) * (t - 0.5) * spread * length * 2.2;
+                c.strokeStyle = (i % 2 === 0) ? darkColor : lightColor;
+                c.lineWidth = Math.max(0.6, length * 0.06);
+                c.beginPath();
+                c.moveTo(sx, sy);
+                c.quadraticCurveTo(
+                    sx + Math.cos(a) * len * 0.6, sy + Math.sin(a) * len * 0.6,
+                    sx + Math.cos(a) * len, sy + Math.sin(a) * len
+                );
+                c.stroke();
+            }
+        }
+
+        // Remplissage avec dégradé radial pour un vrai volume (lumière zénithale cohérente)
+        function radialBodyFill(c, cx, cy, rx, ry, lightColor, midColor, darkColor) {
+            const grad = c.createRadialGradient(cx - rx*0.3, cy - ry*0.45, rx*0.15, cx, cy, rx*1.15);
+            grad.addColorStop(0, lightColor);
+            grad.addColorStop(0.55, midColor);
+            grad.addColorStop(1, darkColor);
+            return grad;
+        }
+
+        // Ombre de contact interne (creux anatomiques : sous le ventre, sous le menton, articulations)
+        function drawInnerShadow(c, cx, cy, rx, ry, alpha) {
+            c.save();
+            c.fillStyle = `rgba(20, 14, 10, ${alpha})`;
+            c.beginPath();
+            c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            c.fill();
+            c.restore();
+        }
+
         // --- DÉFINITION DES ANIMAUX JOUABLES ---
         // Chaque animal expose draw(ctx, baseX, baseY, w, h, legSwing, accessorySet)
         // dessiné en coordonnées écran déjà projetées (réutilisable en jeu ET en aperçu menu).
@@ -812,62 +854,99 @@
             llama: {
                 name: 'Lama',
                 icon: '🦙',
-                colors: ['#FF6B9D', '#FFC93C', '#6BCB77', '#4D96FF', '#C780FA'],
+                colors: ['#C9B79C', '#A89274', '#8A7259', '#6B5642', '#E8DCC8'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.14, legH = h * 0.32;
-                    c.fillStyle = '#3A2E26';
-                    c.fillRect(baseX - w * 0.32, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.18, baseY - legH - legSwing, legW, legH);
+                    const [light, mid, dark, deepest, cream] = this.colors;
 
-                    const bodyH = h * 0.62;
-                    const bodyTop = baseY - legH - bodyH * 0.78;
-                    const grad = c.createLinearGradient(baseX - w/2, bodyTop, baseX + w/2, bodyTop + bodyH);
-                    grad.addColorStop(0, this.colors[0]); grad.addColorStop(0.5, this.colors[2]); grad.addColorStop(1, this.colors[3]);
-                    c.fillStyle = grad;
+                    // --- PATTES (fines, articulées, ombre de contact au sol) ---
+                    const legW = w * 0.12, legH = h * 0.34;
+                    [-0.3, 0.18].forEach((off, i) => {
+                        const lx = baseX + w*off;
+                        const ly = baseY - legH + (i === 0 ? legSwing : -legSwing);
+                        c.fillStyle = dark;
+                        c.beginPath();
+                        c.roundRect(lx, ly, legW, legH, legW*0.3);
+                        c.fill();
+                        // Sabot
+                        c.fillStyle = '#2B2018';
+                        c.beginPath();
+                        c.roundRect(lx - legW*0.08, ly + legH - legH*0.08, legW*1.16, legH*0.12, 2);
+                        c.fill();
+                        // Genou (articulation visible)
+                        drawInnerShadow(c, lx + legW/2, ly + legH*0.4, legW*0.55, legH*0.06, 0.25);
+                    });
+
+                    // --- CORPS : volume radial + texture de laine bouclée ---
+                    const bodyH = h * 0.6, bodyW = w * 1.02;
+                    const bodyCx = baseX, bodyCy = baseY - legH - bodyH*0.42;
+                    c.fillStyle = radialBodyFill(c, bodyCx - bodyW*0.1, bodyCy, bodyW*0.52, bodyH*0.5, cream, light, dark);
                     c.beginPath();
-                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, [w*0.35, w*0.35, w*0.2, w*0.2]);
+                    c.ellipse(bodyCx, bodyCy, bodyW*0.5, bodyH*0.5, 0, 0, Math.PI*2);
                     c.fill();
 
-                    const poms = [this.colors[1], this.colors[4], this.colors[0]];
-                    for (let i = 0; i < 3; i++) {
-                        c.fillStyle = poms[i];
-                        c.beginPath();
-                        c.arc(baseX - w*0.22 + i * (w*0.22), bodyTop + bodyH*0.45, w*0.09, 0, Math.PI*2);
-                        c.fill();
+                    // Ombre de ventre (sous le corps, contact avec les pattes)
+                    drawInnerShadow(c, bodyCx, bodyCy + bodyH*0.42, bodyW*0.4, bodyH*0.14, 0.18);
+
+                    // Texture laine : multiples touffes bouclées sur tout le corps
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 5; col++) {
+                            const fx = bodyCx - bodyW*0.42 + col*(bodyW*0.21) + (row%2)*bodyW*0.05;
+                            const fy = bodyCy - bodyH*0.38 + row*(bodyH*0.24);
+                            drawFurPatch(c, fx, fy, 4, w*0.05, 0.6, -Math.PI/2, dark, light);
+                        }
                     }
 
-                    const neckW = w * 0.34, neckH = h * 0.42;
-                    const neckX = baseX - neckW/2 + w*0.08;
-                    const neckTop = bodyTop - neckH * 0.85;
-                    c.fillStyle = this.colors[3];
+                    // --- COU long, incliné, avec dégradé de volume ---
+                    const neckW = w * 0.3, neckH = h * 0.46;
+                    const neckBaseX = bodyCx + w*0.1, neckBaseY = bodyCy - bodyH*0.32;
+                    const neckTopX = neckBaseX + w*0.05, neckTopY = neckBaseY - neckH;
+                    const neckGrad = c.createLinearGradient(neckBaseX - neckW/2, neckTopY, neckBaseX + neckW/2, neckBaseY);
+                    neckGrad.addColorStop(0, dark); neckGrad.addColorStop(0.5, mid); neckGrad.addColorStop(1, light);
+                    c.fillStyle = neckGrad;
                     c.beginPath();
-                    c.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.15, neckW*0.15]);
+                    c.moveTo(neckBaseX - neckW*0.55, neckBaseY);
+                    c.quadraticCurveTo(neckBaseX - neckW*0.5, neckTopY + neckH*0.3, neckTopX - neckW*0.4, neckTopY);
+                    c.lineTo(neckTopX + neckW*0.4, neckTopY);
+                    c.quadraticCurveTo(neckBaseX + neckW*0.5, neckTopY + neckH*0.3, neckBaseX + neckW*0.55, neckBaseY);
+                    c.closePath();
+                    c.fill();
+                    // Fourrure le long du cou
+                    drawFurPatch(c, neckTopX, (neckTopY+neckBaseY)/2, 8, w*0.045, 1.4, -Math.PI/2, dark, light);
+
+                    // --- TÊTE allongée caractéristique du lama ---
+                    const headW = w * 0.42, headH = h * 0.24;
+                    const headX = neckTopX - headW/2, headTop = neckTopY - headH*0.75;
+                    const headGrad = radialBodyFill(c, headX + headW*0.3, headTop + headH*0.3, headW*0.6, headH*0.7, cream, light, mid);
+                    c.fillStyle = headGrad;
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.3);
                     c.fill();
 
-                    const headW = w * 0.46, headH = h * 0.26;
-                    const headX = neckX + neckW/2 - headW/2;
-                    const headTop = neckTop - headH * 0.8;
-                    c.fillStyle = '#FFF6E9';
+                    // Museau allongé, plus clair, avec ombre sous le menton
+                    c.fillStyle = cream;
                     c.beginPath();
-                    c.roundRect(headX, headTop, headW, headH, headW*0.32);
+                    c.roundRect(headX + headW*0.55, headTop + headH*0.35, headW*0.58, headH*0.5, headW*0.16);
                     c.fill();
+                    drawInnerShadow(c, headX + headW*0.85, headTop + headH*0.78, headW*0.22, headH*0.08, 0.2);
 
-                    c.fillStyle = '#FFE0C2';
+                    // Oreilles longues dressées, ombrage interne
+                    [-0.18, 0.42].forEach((off, i) => {
+                        c.fillStyle = mid;
+                        c.beginPath();
+                        c.ellipse(headX + headW*(0.18+off*0.3), headTop - headH*0.2, headW*0.1, headH*0.36, -0.2+i*0.3, 0, Math.PI*2);
+                        c.fill();
+                        c.fillStyle = '#D9C9AE';
+                        c.beginPath();
+                        c.ellipse(headX + headW*(0.18+off*0.3), headTop - headH*0.18, headW*0.05, headH*0.24, -0.2+i*0.3, 0, Math.PI*2);
+                        c.fill();
+                    });
+
+                    drawEyes(c, headX + headW*0.3, headTop + headH*0.42, headW*0.065, '#4A3520');
+
+                    // Naseaux
+                    c.fillStyle = '#5C4631';
                     c.beginPath();
-                    c.roundRect(headX + headW*0.55, headTop + headH*0.4, headW*0.55, headH*0.5, headW*0.18);
-                    c.fill();
-
-                    c.fillStyle = this.colors[1];
-                    c.beginPath();
-                    c.ellipse(headX + headW*0.18, headTop - headH*0.18, headW*0.1, headH*0.32, -0.2, 0, Math.PI*2);
-                    c.ellipse(headX + headW*0.42, headTop - headH*0.2, headW*0.1, headH*0.34, 0.1, 0, Math.PI*2);
-                    c.fill();
-
-                    drawEyes(c, headX + headW*0.32, headTop + headH*0.42, headW*0.06);
-
-                    c.fillStyle = '#D98E5F';
-                    c.beginPath();
-                    c.arc(headX + headW*0.95, headTop + headH*0.65, headW*0.035, 0, Math.PI*2);
+                    c.ellipse(headX + headW*1.0, headTop + headH*0.62, headW*0.04, headH*0.06, 0.3, 0, Math.PI*2);
                     c.fill();
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'tall' });
@@ -877,60 +956,87 @@
             pig: {
                 name: 'Cochon',
                 icon: '🐷',
-                colors: ['#FF9FC7', '#FFB6D9', '#FF7AAE'],
+                colors: ['#E8B4B8', '#D49097', '#B86E78', '#8C4F58', '#F5D5D2'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.16, legH = h * 0.22;
-                    c.fillStyle = '#E07FA8';
-                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.16, baseY - legH - legSwing, legW, legH);
+                    const [light, mid, dark, deepest, cream] = this.colors;
 
-                    const bodyH = h * 0.55;
-                    const bodyTop = baseY - legH - bodyH * 0.92;
-                    c.fillStyle = this.colors[0];
+                    const legW = w * 0.17, legH = h * 0.2;
+                    [-0.3, 0.16].forEach((off, i) => {
+                        const lx = baseX + w*off, ly = baseY - legH + (i===0?legSwing:-legSwing);
+                        c.fillStyle = dark;
+                        c.beginPath(); c.roundRect(lx, ly, legW, legH, legW*0.35); c.fill();
+                        c.fillStyle = '#5C3D40';
+                        c.beginPath(); c.roundRect(lx, ly+legH-legH*0.15, legW, legH*0.2, 3); c.fill();
+                    });
+
+                    // Corps massif et rond, volume radial typique de la peau de cochon
+                    const bodyH = h * 0.54, bodyW = w * 1.14;
+                    const bodyCx = baseX, bodyCy = baseY - legH - bodyH*0.48;
+                    c.fillStyle = radialBodyFill(c, bodyCx - bodyW*0.12, bodyCy - bodyH*0.15, bodyW*0.55, bodyH*0.55, cream, light, dark);
                     c.beginPath();
-                    c.ellipse(baseX, bodyTop + bodyH/2, w*0.56, bodyH/2, 0, 0, Math.PI*2);
+                    c.ellipse(bodyCx, bodyCy, bodyW*0.5, bodyH*0.5, 0, 0, Math.PI*2);
                     c.fill();
+                    drawInnerShadow(c, bodyCx, bodyCy + bodyH*0.4, bodyW*0.38, bodyH*0.12, 0.15);
 
-                    // Petite queue en tire-bouchon
-                    c.strokeStyle = this.colors[2];
-                    c.lineWidth = w * 0.04;
+                    // Soies éparses fines (les cochons ont peu de poils mais visibles)
+                    for (let i = 0; i < 10; i++) {
+                        const fx = bodyCx - bodyW*0.4 + Math.random()*bodyW*0.8;
+                        const fy = bodyCy - bodyH*0.35 + Math.random()*bodyH*0.6;
+                        c.strokeStyle = 'rgba(140, 79, 88, 0.5)';
+                        c.lineWidth = 1;
+                        c.beginPath(); c.moveTo(fx, fy); c.lineTo(fx + 2, fy - w*0.025); c.stroke();
+                    }
+
+                    // Queue en tire-bouchon
+                    c.strokeStyle = mid;
+                    c.lineWidth = w * 0.035;
+                    c.lineCap = 'round';
                     c.beginPath();
-                    c.arc(baseX + w*0.5, bodyTop + bodyH*0.35, w*0.08, 0, Math.PI*1.5);
+                    c.arc(bodyCx + bodyW*0.46, bodyCy - bodyH*0.1, w*0.075, 0, Math.PI*1.7);
                     c.stroke();
 
-                    const headW = w * 0.62, headH = h * 0.32;
-                    const headX = baseX - headW/2 + w*0.18;
-                    const headTop = bodyTop - headH * 0.55;
-                    c.fillStyle = this.colors[1];
+                    const headW = w * 0.58, headH = h * 0.3;
+                    const headX = bodyCx - headW/2 + w*0.2, headTop = bodyCy - bodyH*0.55 - headH*0.5;
+                    c.fillStyle = radialBodyFill(c, headX+headW*0.3, headTop+headH*0.3, headW*0.55, headH*0.65, cream, light, mid);
                     c.beginPath();
                     c.roundRect(headX, headTop, headW, headH, headW*0.3);
                     c.fill();
 
-                    // Groin (museau rond caractéristique)
-                    c.fillStyle = '#FF5E94';
+                    // Groin avec volume et narines détaillées
+                    const snoutCx = headX + headW*0.84, snoutCy = headTop + headH*0.62;
+                    const snoutGrad = c.createRadialGradient(snoutCx-headW*0.08,snoutCy-headH*0.08,2, snoutCx, snoutCy, headW*0.24);
+                    snoutGrad.addColorStop(0, light); snoutGrad.addColorStop(1, dark);
+                    c.fillStyle = snoutGrad;
                     c.beginPath();
-                    c.roundRect(headX + headW*0.62, headTop + headH*0.45, headW*0.42, headH*0.42, headW*0.14);
+                    c.roundRect(headX + headW*0.6, headTop + headH*0.38, headW*0.4, headH*0.46, headW*0.14);
                     c.fill();
-                    c.fillStyle = '#C24477';
+                    c.fillStyle = deepest;
                     c.beginPath();
-                    c.arc(headX + headW*0.78, headTop + headH*0.66, headW*0.04, 0, Math.PI*2);
-                    c.arc(headX + headW*0.95, headTop + headH*0.66, headW*0.04, 0, Math.PI*2);
-                    c.fill();
-
-                    // Oreilles triangulaires tombantes
-                    c.fillStyle = this.colors[2];
-                    c.beginPath();
-                    c.moveTo(headX + headW*0.08, headTop);
-                    c.lineTo(headX - headW*0.05, headTop - headH*0.4);
-                    c.lineTo(headX + headW*0.32, headTop + headH*0.1);
-                    c.fill();
-                    c.beginPath();
-                    c.moveTo(headX + headW*0.42, headTop);
-                    c.lineTo(headX + headW*0.4, headTop - headH*0.45);
-                    c.lineTo(headX + headW*0.65, headTop + headH*0.08);
+                    c.ellipse(snoutCx - headW*0.06, snoutCy, headW*0.035, headH*0.06, 0.25, 0, Math.PI*2);
+                    c.ellipse(snoutCx + headW*0.08, snoutCy, headW*0.035, headH*0.06, 0.25, 0, Math.PI*2);
                     c.fill();
 
-                    drawEyes(c, headX + headW*0.34, headTop + headH*0.4, headW*0.05);
+                    // Oreilles tombantes avec ombrage interne
+                    c.fillStyle = mid;
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.06, headTop + headH*0.1);
+                    c.quadraticCurveTo(headX - headW*0.08, headTop - headH*0.35, headX + headW*0.28, headTop + headH*0.05);
+                    c.fill();
+                    c.fillStyle = light;
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.1, headTop + headH*0.12);
+                    c.quadraticCurveTo(headX, headTop - headH*0.2, headX + headW*0.24, headTop + headH*0.08);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.32, headTop + headH*0.38, headW*0.05, '#3D2A1E');
+
+                    // Petites rides/plis autour du groin
+                    c.strokeStyle = 'rgba(140,79,88,0.35)';
+                    c.lineWidth = 1;
+                    c.beginPath();
+                    c.moveTo(headX+headW*0.58, headTop+headH*0.3);
+                    c.quadraticCurveTo(headX+headW*0.65, headTop+headH*0.2, headX+headW*0.75, headTop+headH*0.25);
+                    c.stroke();
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
                 }
@@ -939,67 +1045,103 @@
             cat: {
                 name: 'Chat',
                 icon: '🐱',
-                colors: ['#FFA94D', '#FF8C2E', '#FFD8A8'],
+                colors: ['#D97D3D', '#B8602A', '#8C481F', '#5C2E12', '#F2C896'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.13, legH = h * 0.3;
-                    c.fillStyle = this.colors[1];
-                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
+                    const [light, mid, dark, deepest, cream] = this.colors;
 
-                    const bodyH = h * 0.5;
-                    const bodyTop = baseY - legH - bodyH * 0.85;
-                    c.fillStyle = this.colors[0];
+                    const legW = w * 0.12, legH = h * 0.3;
+                    [-0.3, 0.17].forEach((off, i) => {
+                        const lx = baseX + w*off, ly = baseY - legH + (i===0?legSwing:-legSwing);
+                        c.fillStyle = dark;
+                        c.beginPath(); c.roundRect(lx, ly, legW, legH, legW*0.3); c.fill();
+                        c.fillStyle = cream;
+                        c.beginPath(); c.roundRect(lx, ly+legH-legH*0.12, legW, legH*0.14, 2); c.fill();
+                    });
+
+                    const bodyH = h * 0.48, bodyW = w * 1.05;
+                    const bodyCx = baseX, bodyCy = baseY - legH - bodyH*0.5;
+                    c.fillStyle = radialBodyFill(c, bodyCx-bodyW*0.15, bodyCy-bodyH*0.2, bodyW*0.5, bodyH*0.55, light, mid, dark);
                     c.beginPath();
-                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.3);
+                    c.roundRect(bodyCx - bodyW/2, bodyCy - bodyH/2, bodyW, bodyH, bodyW*0.28);
                     c.fill();
+                    drawInnerShadow(c, bodyCx, bodyCy+bodyH*0.38, bodyW*0.34, bodyH*0.1, 0.15);
 
-                    // Queue arquée
-                    c.strokeStyle = this.colors[0];
-                    c.lineWidth = w * 0.09;
+                    // Queue arquée avec anneaux tigrés
+                    c.strokeStyle = mid;
+                    c.lineWidth = w * 0.085;
                     c.lineCap = 'round';
                     c.beginPath();
-                    c.moveTo(baseX + w*0.45, bodyTop + bodyH*0.5);
-                    c.quadraticCurveTo(baseX + w*0.85, bodyTop + bodyH*0.2, baseX + w*0.7, bodyTop - bodyH*0.45);
+                    c.moveTo(bodyCx + bodyW*0.42, bodyCy + bodyH*0.3);
+                    c.quadraticCurveTo(bodyCx + bodyW*0.82, bodyCy, bodyCx + bodyW*0.65, bodyCy - bodyH*0.85);
                     c.stroke();
+                    c.strokeStyle = dark; c.lineWidth = w*0.025;
+                    for (let t = 0.2; t < 0.9; t += 0.18) {
+                        const px = bodyCx + bodyW*0.42 + (bodyCx+bodyW*0.65 - (bodyCx+bodyW*0.42))*t;
+                        const py = bodyCy + bodyH*0.3 - (bodyH*1.15)*t;
+                        c.beginPath(); c.arc(px, py, w*0.045, 0, Math.PI*2); c.stroke();
+                    }
 
-                    // Rayures tigrées
-                    c.strokeStyle = this.colors[1];
-                    c.lineWidth = w * 0.035;
+                    // Texture fourrure courte sur le corps
+                    for (let row = 0; row < 3; row++) {
+                        for (let col = 0; col < 4; col++) {
+                            const fx = bodyCx - bodyW*0.35 + col*(bodyW*0.23);
+                            const fy = bodyCy - bodyH*0.3 + row*(bodyH*0.3);
+                            drawFurPatch(c, fx, fy, 3, w*0.035, 0.5, -Math.PI/2, dark, light);
+                        }
+                    }
+                    // Rayures tigrées verticales nettes
+                    c.strokeStyle = deepest;
+                    c.lineWidth = w * 0.03;
+                    c.lineCap = 'round';
                     for (let i = 0; i < 3; i++) {
                         c.beginPath();
-                        c.moveTo(baseX - w*0.15 + i*w*0.13, bodyTop + bodyH*0.1);
-                        c.lineTo(baseX - w*0.2 + i*w*0.13, bodyTop + bodyH*0.75);
+                        c.moveTo(bodyCx - bodyW*0.22 + i*bodyW*0.16, bodyCy - bodyH*0.42);
+                        c.quadraticCurveTo(bodyCx - bodyW*0.26 + i*bodyW*0.16, bodyCy, bodyCx - bodyW*0.22 + i*bodyW*0.16, bodyCy + bodyH*0.4);
                         c.stroke();
                     }
 
-                    const headW = w * 0.5, headH = h * 0.28;
-                    const headX = baseX - headW/2;
-                    const headTop = bodyTop - headH * 0.78;
-                    c.fillStyle = this.colors[2];
+                    const headW = w * 0.46, headH = h * 0.26;
+                    const headX = bodyCx - headW/2, headTop = bodyCy - bodyH*0.5 - headH*0.78;
+                    c.fillStyle = radialBodyFill(c, headX+headW*0.3, headTop+headH*0.3, headW*0.55, headH*0.65, cream, light, mid);
                     c.beginPath();
                     c.roundRect(headX, headTop, headW, headH, headW*0.35);
                     c.fill();
 
-                    // Oreilles triangulaires pointues
-                    c.fillStyle = this.colors[0];
-                    c.beginPath();
-                    c.moveTo(headX + headW*0.08, headTop + headH*0.15);
-                    c.lineTo(headX + headW*0.02, headTop - headH*0.55);
-                    c.lineTo(headX + headW*0.32, headTop + headH*0.05);
-                    c.fill();
-                    c.beginPath();
-                    c.moveTo(headX + headW*0.68, headTop + headH*0.05);
-                    c.lineTo(headX + headW*0.98, headTop - headH*0.55);
-                    c.lineTo(headX + headW*0.92, headTop + headH*0.15);
-                    c.fill();
+                    // Oreilles triangulaires pointues, intérieur rosé
+                    [[0.06, -0.55], [0.7, -0.55]].forEach(([ox, tipY], i) => {
+                        c.fillStyle = mid;
+                        c.beginPath();
+                        c.moveTo(headX + headW*(ox+0.02), headTop + headH*0.15);
+                        c.lineTo(headX + headW*ox, headTop + headH*tipY);
+                        c.lineTo(headX + headW*(ox+0.26), headTop + headH*0.05);
+                        c.fill();
+                        c.fillStyle = '#E89B8C';
+                        c.beginPath();
+                        c.moveTo(headX + headW*(ox+0.07), headTop + headH*0.15);
+                        c.lineTo(headX + headW*(ox+0.05), headTop + headH*(tipY*0.55));
+                        c.lineTo(headX + headW*(ox+0.2), headTop + headH*0.1);
+                        c.fill();
+                    });
 
-                    drawEyes(c, headX + headW*0.32, headTop + headH*0.5, headW*0.06);
+                    drawEyes(c, headX + headW*0.3, headTop + headH*0.5, headW*0.065, '#7CB342');
 
-                    // Moustaches
-                    c.strokeStyle = 'rgba(255,255,255,0.7)';
-                    c.lineWidth = 1;
-                    [0.55, 0.65, 0.75].forEach(f => {
-                        c.beginPath(); c.moveTo(headX + headW*0.6, headTop + headH*f); c.lineTo(headX + headW*1.05, headTop + headH*(f-0.05)); c.stroke();
+                    // Rayures sur le front (texture tigrée du visage)
+                    c.strokeStyle = dark; c.lineWidth = w*0.018;
+                    [0.1,0.2,0.3].forEach(f => {
+                        c.beginPath(); c.moveTo(headX+headW*0.5, headTop-headH*f*0.3); c.lineTo(headX+headW*(0.5-f*0.4), headTop+headH*0.15); c.stroke();
+                    });
+
+                    // Truffe et bouche
+                    c.fillStyle = '#D97A6B';
+                    c.beginPath(); c.moveTo(headX+headW*0.46, headTop+headH*0.65); c.lineTo(headX+headW*0.56, headTop+headH*0.65); c.lineTo(headX+headW*0.51, headTop+headH*0.75); c.fill();
+                    c.strokeStyle = 'rgba(60,40,20,0.6)'; c.lineWidth = 1;
+                    c.beginPath(); c.moveTo(headX+headW*0.51, headTop+headH*0.75); c.quadraticCurveTo(headX+headW*0.45, headTop+headH*0.85, headX+headW*0.38, headTop+headH*0.78); c.stroke();
+
+                    // Moustaches fines
+                    c.strokeStyle = 'rgba(255,255,255,0.85)';
+                    c.lineWidth = 0.8;
+                    [0.6, 0.7, 0.8].forEach(f => {
+                        c.beginPath(); c.moveTo(headX + headW*0.55, headTop + headH*f); c.lineTo(headX + headW*1.08, headTop + headH*(f-0.06)); c.stroke();
                     });
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
@@ -1009,55 +1151,90 @@
             dog: {
                 name: 'Chien',
                 icon: '🐶',
-                colors: ['#D9A066', '#C2884F', '#F2C98A'],
+                colors: ['#C99A5B', '#A87A3F', '#7D5828', '#4F371A', '#E8C98C'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.15, legH = h * 0.34;
-                    c.fillStyle = this.colors[1];
-                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
+                    const [light, mid, dark, deepest, cream] = this.colors;
 
-                    const bodyH = h * 0.55;
-                    const bodyTop = baseY - legH - bodyH * 0.85;
-                    c.fillStyle = this.colors[0];
+                    const legW = w * 0.14, legH = h * 0.36;
+                    [-0.3, 0.17].forEach((off, i) => {
+                        const lx = baseX + w*off, ly = baseY - legH + (i===0?legSwing:-legSwing);
+                        c.fillStyle = dark;
+                        c.beginPath(); c.roundRect(lx, ly, legW, legH, legW*0.3); c.fill();
+                        c.fillStyle = cream;
+                        c.beginPath(); c.roundRect(lx, ly+legH-legH*0.12, legW, legH*0.14, 2); c.fill();
+                        drawFurPatch(c, lx+legW/2, ly+legH*0.15, 3, w*0.025, 0.6, -Math.PI/2, dark, light);
+                    });
+
+                    const bodyH = h * 0.52, bodyW = w * 1.05;
+                    const bodyCx = baseX, bodyCy = baseY - legH - bodyH*0.46;
+                    c.fillStyle = radialBodyFill(c, bodyCx-bodyW*0.15, bodyCy-bodyH*0.2, bodyW*0.5, bodyH*0.55, light, mid, dark);
                     c.beginPath();
-                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.28);
+                    c.roundRect(bodyCx - bodyW/2, bodyCy - bodyH/2, bodyW, bodyH, bodyW*0.26);
+                    c.fill();
+                    drawInnerShadow(c, bodyCx, bodyCy+bodyH*0.38, bodyW*0.36, bodyH*0.1, 0.16);
+
+                    // Texture fourrure plus longue sur le dos et le poitrail
+                    for (let row = 0; row < 3; row++) {
+                        for (let col = 0; col < 5; col++) {
+                            const fx = bodyCx - bodyW*0.4 + col*(bodyW*0.2);
+                            const fy = bodyCy - bodyH*0.4 + row*(bodyH*0.32);
+                            drawFurPatch(c, fx, fy, 4, w*0.045, 0.65, -Math.PI/2, dark, light);
+                        }
+                    }
+                    // Poitrail plus clair
+                    c.fillStyle = cream;
+                    c.beginPath();
+                    c.ellipse(bodyCx - bodyW*0.32, bodyCy + bodyH*0.1, bodyW*0.14, bodyH*0.32, 0, 0, Math.PI*2);
                     c.fill();
 
-                    // Queue remuante
-                    c.strokeStyle = this.colors[0];
-                    c.lineWidth = w*0.1;
+                    // Queue remuante touffue
+                    c.strokeStyle = mid;
+                    c.lineWidth = w*0.11;
                     c.lineCap = 'round';
                     c.beginPath();
-                    c.moveTo(baseX + w*0.46, bodyTop + bodyH*0.4);
-                    c.quadraticCurveTo(baseX + w*0.75, bodyTop, baseX + w*0.6, bodyTop - bodyH*0.4);
+                    c.moveTo(bodyCx + bodyW*0.44, bodyCy + bodyH*0.25);
+                    c.quadraticCurveTo(bodyCx + bodyW*0.78, bodyCy - bodyH*0.05, bodyCx + bodyW*0.6, bodyCy - bodyH*0.55);
                     c.stroke();
+                    drawFurPatch(c, bodyCx+bodyW*0.65, bodyCy-bodyH*0.3, 5, w*0.04, 1.2, -Math.PI*0.7, dark, light);
 
-                    const headW = w * 0.56, headH = h * 0.3;
-                    const headX = baseX - headW/2 + w*0.04;
-                    const headTop = bodyTop - headH * 0.7;
-                    c.fillStyle = this.colors[2];
+                    const headW = w * 0.52, headH = h * 0.28;
+                    const headX = bodyCx - headW/2 + w*0.04, headTop = bodyCy - bodyH*0.5 - headH*0.65;
+                    c.fillStyle = radialBodyFill(c, headX+headW*0.25, headTop+headH*0.3, headW*0.55, headH*0.65, cream, light, mid);
                     c.beginPath();
                     c.roundRect(headX, headTop, headW, headH, headW*0.3);
                     c.fill();
 
-                    // Museau allongé
-                    c.fillStyle = this.colors[0];
+                    // Museau allongé avec volume et truffe humide
+                    const snoutGrad = c.createLinearGradient(headX+headW*0.55, headTop, headX+headW*1.05, headTop+headH);
+                    snoutGrad.addColorStop(0, light); snoutGrad.addColorStop(1, mid);
+                    c.fillStyle = snoutGrad;
                     c.beginPath();
-                    c.roundRect(headX + headW*0.62, headTop + headH*0.35, headW*0.45, headH*0.5, headW*0.16);
+                    c.roundRect(headX + headW*0.58, headTop + headH*0.32, headW*0.47, headH*0.52, headW*0.15);
                     c.fill();
-                    c.fillStyle = '#3A2E26';
+                    c.fillStyle = '#2B2018';
                     c.beginPath();
-                    c.arc(headX + headW*1.0, headTop + headH*0.58, headW*0.05, 0, Math.PI*2);
+                    c.ellipse(headX + headW*1.0, headTop + headH*0.55, headW*0.055, headH*0.075, 0, 0, Math.PI*2);
                     c.fill();
+                    c.fillStyle = 'rgba(255,255,255,0.4)';
+                    c.beginPath(); c.arc(headX+headW*0.98, headTop+headH*0.5, headW*0.015, 0, Math.PI*2); c.fill();
 
-                    // Oreilles tombantes
-                    c.fillStyle = this.colors[1];
-                    c.beginPath();
-                    c.ellipse(headX + headW*0.1, headTop + headH*0.35, headW*0.13, headH*0.55, -0.25, 0, Math.PI*2);
-                    c.ellipse(headX + headW*0.42, headTop + headH*0.15, headW*0.11, headH*0.5, 0.15, 0, Math.PI*2);
-                    c.fill();
+                    // Oreilles tombantes texturées avec ombrage interne
+                    [[0.1, -0.25, headH*0.55], [0.4, 0.15, headH*0.5]].forEach(([ox, rot, len]) => {
+                        c.fillStyle = mid;
+                        c.beginPath();
+                        c.ellipse(headX + headW*ox, headTop + headH*0.3, headW*0.13, len, rot, 0, Math.PI*2);
+                        c.fill();
+                        c.fillStyle = dark;
+                        c.beginPath();
+                        c.ellipse(headX + headW*ox, headTop + headH*0.32, headW*0.07, len*0.7, rot, 0, Math.PI*2);
+                        c.fill();
+                    });
 
-                    drawEyes(c, headX + headW*0.32, headTop + headH*0.4, headW*0.055);
+                    drawEyes(c, headX + headW*0.28, headTop + headH*0.42, headW*0.058, '#4A3018');
+
+                    // Sourcils expressifs
+                    c.strokeStyle = dark; c.lineWidth = headW*0.025; c.lineCap='round';
+                    c.beginPath(); c.moveTo(headX+headW*0.18, headTop+headH*0.22); c.lineTo(headX+headW*0.32, headTop+headH*0.2); c.stroke();
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
                 }
@@ -1066,56 +1243,88 @@
             squirrel: {
                 name: 'Écureuil',
                 icon: '🐿️',
-                colors: ['#D9763B', '#B85C28', '#F2A766'],
+                colors: ['#C2632A', '#9C4A1A', '#6E3110', '#451E08', '#E89656'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.12, legH = h * 0.26;
-                    c.fillStyle = this.colors[1];
-                    c.fillRect(baseX - w * 0.26, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.14, baseY - legH - legSwing, legW, legH);
+                    const [light, mid, dark, deepest, cream] = this.colors;
 
-                    const bodyH = h * 0.46;
-                    const bodyTop = baseY - legH - bodyH * 0.9;
-                    c.fillStyle = this.colors[0];
-                    c.beginPath();
-                    c.ellipse(baseX - w*0.05, bodyTop + bodyH/2, w*0.4, bodyH/2, 0, 0, Math.PI*2);
-                    c.fill();
+                    const legW = w * 0.11, legH = h * 0.26;
+                    [-0.24, 0.13].forEach((off, i) => {
+                        const lx = baseX + w*off, ly = baseY - legH + (i===0?legSwing:-legSwing);
+                        c.fillStyle = dark;
+                        c.beginPath(); c.roundRect(lx, ly, legW, legH, legW*0.4); c.fill();
+                        drawFurPatch(c, lx+legW/2, ly+legH*0.1, 3, w*0.02, 0.5, -Math.PI/2, dark, light);
+                    });
 
-                    // Grande queue touffue et arquée (signature de l'écureuil)
-                    c.fillStyle = this.colors[2];
+                    const bodyH = h * 0.42, bodyW = w * 0.78;
+                    const bodyCx = baseX - w*0.05, bodyCy = baseY - legH - bodyH*0.55;
+                    c.fillStyle = radialBodyFill(c, bodyCx-bodyW*0.15, bodyCy-bodyH*0.2, bodyW*0.5, bodyH*0.55, cream, light, dark);
                     c.beginPath();
-                    c.moveTo(baseX + w*0.2, bodyTop + bodyH*0.6);
-                    c.quadraticCurveTo(baseX + w*0.95, bodyTop + bodyH*0.5, baseX + w*0.75, bodyTop - bodyH*1.3);
-                    c.quadraticCurveTo(baseX + w*0.55, bodyTop - bodyH*1.6, baseX + w*0.35, bodyTop - bodyH*0.6);
-                    c.quadraticCurveTo(baseX + w*0.45, bodyTop, baseX + w*0.2, bodyTop + bodyH*0.6);
+                    c.ellipse(bodyCx, bodyCy, bodyW*0.5, bodyH*0.5, 0, 0, Math.PI*2);
                     c.fill();
-                    c.strokeStyle = this.colors[1];
-                    c.lineWidth = w*0.025;
+                    // Ventre clair caractéristique
+                    c.fillStyle = '#F5DCC0';
                     c.beginPath();
-                    c.moveTo(baseX + w*0.3, bodyTop - bodyH*0.1);
-                    c.lineTo(baseX + w*0.6, bodyTop - bodyH*1.1);
+                    c.ellipse(bodyCx - bodyW*0.05, bodyCy + bodyH*0.18, bodyW*0.28, bodyH*0.28, 0, 0, Math.PI*2);
+                    c.fill();
+                    drawFurPatch(c, bodyCx, bodyCy-bodyH*0.3, 5, w*0.035, 0.7, -Math.PI/2, dark, light);
+
+                    // --- Grande queue touffue : multiples couches de mèches courbes ---
+                    const tailBaseX = baseX + w*0.22, tailBaseY = bodyCy + bodyH*0.15;
+                    const tailTipX = baseX + w*0.62, tailTipY = bodyCy - bodyH*2.3;
+                    // Masse de fond (silhouette pleine)
+                    c.fillStyle = mid;
+                    c.beginPath();
+                    c.moveTo(tailBaseX, tailBaseY);
+                    c.quadraticCurveTo(baseX + w*0.95, bodyCy - bodyH*0.3, tailTipX + w*0.12, tailTipY + bodyH*0.4);
+                    c.quadraticCurveTo(baseX + w*0.78, tailTipY - bodyH*0.3, baseX + w*0.42, tailTipY + bodyH*0.1);
+                    c.quadraticCurveTo(baseX + w*0.5, bodyCy - bodyH*0.6, tailBaseX - w*0.05, tailBaseY);
+                    c.closePath();
+                    c.fill();
+                    // Mèches de fourrure individuelles le long de la courbe (effet plumeux réaliste)
+                    const tailSteps = 14;
+                    for (let i = 0; i < tailSteps; i++) {
+                        const t = i / tailSteps;
+                        const cx = tailBaseX + (tailTipX - tailBaseX) * t + Math.sin(t*Math.PI)*w*0.18;
+                        const cy = tailBaseY + (tailTipY - tailBaseY) * t;
+                        const tuftAngle = -Math.PI/2 + (t - 0.5) * 0.6;
+                        drawFurPatch(c, cx, cy, 5, w*0.09 * (1 - t*0.3), 1.1, tuftAngle, dark, light);
+                    }
+                    // Reflet clair sur le bord extérieur de la queue
+                    c.strokeStyle = cream; c.lineWidth = w*0.02; c.globalAlpha = 0.6;
+                    c.beginPath();
+                    c.moveTo(tailBaseX, tailBaseY);
+                    c.quadraticCurveTo(baseX + w*0.85, bodyCy - bodyH*0.4, tailTipX, tailTipY + bodyH*0.3);
                     c.stroke();
+                    c.globalAlpha = 1;
 
-                    const headW = w * 0.42, headH = h * 0.24;
-                    const headX = baseX - headW/2 - w*0.06;
-                    const headTop = bodyTop - headH * 0.7;
-                    c.fillStyle = this.colors[0];
+                    const headW = w * 0.4, headH = h * 0.22;
+                    const headX = bodyCx - headW/2 - w*0.04, headTop = bodyCy - bodyH*0.5 - headH*0.65;
+                    c.fillStyle = radialBodyFill(c, headX+headW*0.25, headTop+headH*0.3, headW*0.55, headH*0.65, cream, light, mid);
                     c.beginPath();
-                    c.roundRect(headX, headTop, headW, headH, headW*0.4);
+                    c.roundRect(headX, headTop, headW, headH, headW*0.42);
                     c.fill();
 
-                    // Petites oreilles rondes
-                    c.fillStyle = this.colors[1];
-                    c.beginPath();
-                    c.arc(headX + headW*0.2, headTop, headW*0.13, 0, Math.PI*2);
-                    c.arc(headX + headW*0.7, headTop, headW*0.13, 0, Math.PI*2);
-                    c.fill();
+                    // Oreilles rondes texturées
+                    [0.18, 0.68].forEach(ox => {
+                        c.fillStyle = mid;
+                        c.beginPath(); c.arc(headX + headW*ox, headTop + headH*0.05, headW*0.15, 0, Math.PI*2); c.fill();
+                        c.fillStyle = '#E0A678';
+                        c.beginPath(); c.arc(headX + headW*ox, headTop + headH*0.08, headW*0.08, 0, Math.PI*2); c.fill();
+                    });
 
-                    drawEyes(c, headX + headW*0.28, headTop + headH*0.5, headW*0.07);
+                    drawEyes(c, headX + headW*0.26, headTop + headH*0.5, headW*0.075, '#2B1A0D');
 
-                    c.fillStyle = '#FFF3E0';
+                    // Joues rondes (caractéristique grignoteuse)
+                    c.fillStyle = cream;
                     c.beginPath();
-                    c.ellipse(headX + headW*0.75, headTop + headH*0.65, headW*0.18, headH*0.22, 0, 0, Math.PI*2);
+                    c.ellipse(headX + headW*0.72, headTop + headH*0.62, headW*0.2, headH*0.24, 0, 0, Math.PI*2);
                     c.fill();
+                    c.fillStyle = '#3D2A1A';
+                    c.beginPath(); c.arc(headX + headW*0.96, headTop + headH*0.55, headW*0.035, 0, Math.PI*2); c.fill();
+
+                    // Petites moustaches
+                    c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 0.6;
+                    [0.55,0.65].forEach(f => { c.beginPath(); c.moveTo(headX+headW*0.85, headTop+headH*f); c.lineTo(headX+headW*1.1, headTop+headH*(f-0.04)); c.stroke(); });
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
                 }
@@ -1124,85 +1333,150 @@
             zebra: {
                 name: 'Zèbre',
                 icon: '🦓',
-                colors: ['#FFFFFF', '#2B2B2E', '#F4F4F6'],
+                colors: ['#F0EDE6', '#1C1C1E', '#3A3A3D', '#0A0A0B', '#FAF8F4'],
                 draw(c, baseX, baseY, w, h, legSwing, acc) {
-                    const legW = w * 0.14, legH = h * 0.34;
-                    c.fillStyle = '#F4F4F6';
-                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
-                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
-                    c.fillStyle = this.colors[1];
+                    const [base, stripe, gray, black, cream] = this.colors;
+
+                    const legW = w * 0.13, legH = h * 0.36;
                     [-0.3, 0.17].forEach((off, i) => {
-                        const ly = baseY - legH + (i===0? legSwing : -legSwing);
-                        c.fillRect(baseX + w*off, ly + legH*0.25, legW, legH*0.12);
-                        c.fillRect(baseX + w*off, ly + legH*0.6, legW, legH*0.12);
+                        const lx = baseX + w*off, ly = baseY - legH + (i===0?legSwing:-legSwing);
+                        c.fillStyle = base;
+                        c.beginPath(); c.roundRect(lx, ly, legW, legH, legW*0.25); c.fill();
+                        c.fillStyle = stripe;
+                        [0.2, 0.45, 0.7].forEach(f => c.fillRect(lx, ly+legH*f, legW, legH*0.08));
+                        c.fillStyle = black;
+                        c.beginPath(); c.roundRect(lx, ly+legH-legH*0.08, legW, legH*0.1, 2); c.fill();
                     });
 
-                    const bodyH = h * 0.58;
-                    const bodyTop = baseY - legH - bodyH * 0.8;
-                    c.fillStyle = this.colors[0];
+                    const bodyH = h * 0.56, bodyW = w * 1.02;
+                    const bodyCx = baseX, bodyCy = baseY - legH - bodyH*0.44;
+                    c.fillStyle = radialBodyFill(c, bodyCx-bodyW*0.15, bodyCy-bodyH*0.15, bodyW*0.52, bodyH*0.55, cream, base, '#D8D4CC');
                     c.beginPath();
-                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.25);
+                    c.roundRect(bodyCx - bodyW/2, bodyCy - bodyH/2, bodyW, bodyH, bodyW*0.22);
                     c.fill();
+                    drawInnerShadow(c, bodyCx, bodyCy+bodyH*0.38, bodyW*0.36, bodyH*0.1, 0.12);
 
-                    // Rayures noires verticales caractéristiques du zèbre
-                    c.fillStyle = this.colors[1];
-                    for (let i = 0; i < 5; i++) {
-                        c.save();
-                        c.translate(baseX - w*0.4 + i*(w*0.21), bodyTop);
+                    // Rayures courbes organiques (pas de simples bandes droites)
+                    c.save();
+                    c.beginPath();
+                    c.roundRect(bodyCx - bodyW/2, bodyCy - bodyH/2, bodyW, bodyH, bodyW*0.22);
+                    c.clip();
+                    c.strokeStyle = stripe;
+                    for (let i = 0; i < 9; i++) {
+                        const sx = bodyCx - bodyW*0.5 + i*(bodyW*0.13);
+                        c.lineWidth = w * (0.045 - i*0.001);
                         c.beginPath();
-                        c.moveTo(0, 0); c.lineTo(w*0.07, 0); c.lineTo(w*0.04, bodyH); c.lineTo(-w*0.03, bodyH);
-                        c.closePath(); c.fill();
-                        c.restore();
+                        c.moveTo(sx, bodyCy - bodyH*0.55);
+                        c.quadraticCurveTo(sx + w*0.025*Math.sin(i), bodyCy, sx - w*0.02, bodyCy + bodyH*0.55);
+                        c.stroke();
                     }
+                    c.restore();
 
-                    // Crinière en pics noirs/blancs
-                    const neckW = w * 0.3, neckH = h * 0.38;
-                    const neckX = baseX - neckW/2 + w*0.1;
-                    const neckTop = bodyTop - neckH * 0.8;
-                    c.fillStyle = this.colors[0];
+                    const neckW = w * 0.28, neckH = h * 0.4;
+                    const neckBaseX = bodyCx + w*0.08, neckBaseY = bodyCy - bodyH*0.34;
+                    const neckTopY = neckBaseY - neckH;
+                    c.fillStyle = radialBodyFill(c, neckBaseX, (neckTopY+neckBaseY)/2, neckW*0.7, neckH*0.6, cream, base, '#D8D4CC');
                     c.beginPath();
-                    c.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.1, neckW*0.1]);
+                    c.roundRect(neckBaseX - neckW/2, neckTopY, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.1, neckW*0.1]);
                     c.fill();
-                    c.fillStyle = this.colors[1];
-                    for (let i = 0; i < 4; i++) {
+                    // Rayures du cou
+                    c.save();
+                    c.beginPath(); c.roundRect(neckBaseX - neckW/2, neckTopY, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.1, neckW*0.1]); c.clip();
+                    c.strokeStyle = stripe; c.lineWidth = w*0.03;
+                    for (let i = 0; i < 5; i++) {
                         c.beginPath();
-                        c.moveTo(neckX + neckW*0.5 - 4, neckTop - neckH*0.05 + i*(neckH*0.18));
-                        c.lineTo(neckX + neckW*0.5 + neckW*0.35, neckTop + i*(neckH*0.18));
-                        c.lineTo(neckX + neckW*0.5 - 4, neckTop + neckH*0.13 + i*(neckH*0.18));
+                        c.moveTo(neckBaseX - neckW*0.4 + i*neckW*0.2, neckTopY);
+                        c.lineTo(neckBaseX - neckW*0.35 + i*neckW*0.2, neckBaseY);
+                        c.stroke();
+                    }
+                    c.restore();
+
+                    // Crinière hérissée en pics noir/blanc alternés (texture brosse)
+                    c.fillStyle = black;
+                    for (let i = 0; i < 7; i++) {
+                        const my = neckTopY + neckH*0.05 + i*(neckH*0.13);
+                        c.fillStyle = (i % 2 === 0) ? black : cream;
+                        c.beginPath();
+                        c.moveTo(neckBaseX + neckW*0.42, my);
+                        c.lineTo(neckBaseX + neckW*0.85, my + neckH*0.04);
+                        c.lineTo(neckBaseX + neckW*0.42, my + neckH*0.11);
                         c.fill();
                     }
 
-                    const headW = w * 0.4, headH = h * 0.24;
-                    const headX = neckX + neckW/2 - headW/2;
-                    const headTop = neckTop - headH * 0.75;
-                    c.fillStyle = this.colors[0];
+                    const headW = w * 0.38, headH = h * 0.23;
+                    const headX = neckBaseX - headW/2, headTop = neckTopY - headH*0.7;
+                    c.fillStyle = radialBodyFill(c, headX+headW*0.25, headTop+headH*0.3, headW*0.55, headH*0.65, cream, base, gray);
                     c.beginPath();
-                    c.roundRect(headX, headTop, headW, headH, headW*0.3);
+                    c.roundRect(headX, headTop, headW, headH, headW*0.28);
                     c.fill();
-                    c.fillStyle = this.colors[1];
+                    // Museau gris caractéristique
+                    c.fillStyle = gray;
                     c.beginPath();
-                    c.roundRect(headX + headW*0.5, headTop + headH*0.3, headW*0.5, headH*0.45, headW*0.15);
+                    c.roundRect(headX + headW*0.52, headTop + headH*0.28, headW*0.5, headH*0.5, headW*0.14);
                     c.fill();
+                    c.fillStyle = black;
+                    c.beginPath(); c.ellipse(headX+headW*0.96, headTop+headH*0.55, headW*0.035, headH*0.06, 0.2, 0, Math.PI*2); c.fill();
+                    // Rayures fines sur le visage
+                    c.strokeStyle = stripe; c.lineWidth = w*0.012;
+                    [0.1,0.25,0.4].forEach(f => {
+                        c.beginPath(); c.moveTo(headX+headW*0.15, headTop+headH*f); c.lineTo(headX+headW*0.4, headTop+headH*(f+0.05)); c.stroke();
+                    });
 
-                    c.fillStyle = this.colors[1];
-                    c.beginPath();
-                    c.ellipse(headX + headW*0.15, headTop - headH*0.15, headW*0.1, headH*0.3, -0.2, 0, Math.PI*2);
-                    c.ellipse(headX + headW*0.4, headTop - headH*0.18, headW*0.1, headH*0.32, 0.1, 0, Math.PI*2);
-                    c.fill();
+                    // Oreilles dressées avec intérieur ombré
+                    [-0.16, 0.36].forEach((off, i) => {
+                        c.fillStyle = base;
+                        c.beginPath();
+                        c.ellipse(headX + headW*(0.2+off*0.3), headTop - headH*0.16, headW*0.095, headH*0.3, -0.2+i*0.3, 0, Math.PI*2);
+                        c.fill();
+                        c.fillStyle = gray;
+                        c.beginPath();
+                        c.ellipse(headX + headW*(0.2+off*0.3), headTop - headH*0.14, headW*0.045, headH*0.18, -0.2+i*0.3, 0, Math.PI*2);
+                        c.fill();
+                    });
 
-                    drawEyes(c, headX + headW*0.28, headTop + headH*0.4, headW*0.05);
+                    drawEyes(c, headX + headW*0.26, headTop + headH*0.42, headW*0.06, '#2B2018');
 
                     drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'tall' });
                 }
             }
         };
 
-        // Petite aide pour des yeux mignons cohérents sur tous les animaux
-        function drawEyes(c, x, y, size) {
-            c.fillStyle = '#1C1C1E';
-            c.beginPath(); c.arc(x, y, size, 0, Math.PI*2); c.fill();
-            c.fillStyle = '#FFFFFF';
-            c.beginPath(); c.arc(x + size*0.3, y - size*0.3, size*0.32, 0, Math.PI*2); c.fill();
+        // Yeux réalistes : sclère, iris coloré avec dégradé, pupille, reflet de lumière, paupière
+        function drawEyes(c, x, y, size, irisColor = '#3D2817') {
+            // Sclère (légèrement crème, pas blanc pur, plus naturel)
+            c.fillStyle = '#F5EFE6';
+            c.beginPath(); c.ellipse(x, y, size * 1.05, size * 0.85, 0, 0, Math.PI*2); c.fill();
+
+            // Iris avec dégradé radial
+            const irisGrad = c.createRadialGradient(x, y, size*0.05, x, y, size*0.75);
+            irisGrad.addColorStop(0, lightenColor(irisColor, 25));
+            irisGrad.addColorStop(0.7, irisColor);
+            irisGrad.addColorStop(1, '#1A1109');
+            c.fillStyle = irisGrad;
+            c.beginPath(); c.arc(x, y, size * 0.72, 0, Math.PI*2); c.fill();
+
+            // Pupille
+            c.fillStyle = '#0A0705';
+            c.beginPath(); c.arc(x, y, size * 0.38, 0, Math.PI*2); c.fill();
+
+            // Reflet de lumière (double, façon catch-light photo)
+            c.fillStyle = 'rgba(255,255,255,0.95)';
+            c.beginPath(); c.arc(x + size*0.28, y - size*0.32, size*0.2, 0, Math.PI*2); c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.5)';
+            c.beginPath(); c.arc(x - size*0.2, y + size*0.2, size*0.1, 0, Math.PI*2); c.fill();
+
+            // Paupière supérieure (ombre + ligne de contour, donne du volume)
+            c.strokeStyle = 'rgba(0,0,0,0.4)';
+            c.lineWidth = size * 0.18;
+            c.lineCap = 'round';
+            c.beginPath();
+            c.arc(x, y, size * 1.0, Math.PI * 1.08, Math.PI * 1.92);
+            c.stroke();
+        }
+
+        // Éclaircit une couleur hex d'un pourcentage donné (pour dégradés d'iris, reflets, etc.)
+        function lightenColor(hex, percent) {
+            return shadeColor(hex, percent);
         }
 
         // --- RENDU DES ACCESSOIRES DÉBLOQUÉS PAR LES RÉCOMPENSES ---
@@ -1211,93 +1485,177 @@
             if (!acc || acc.size === 0) return;
             const { baseX, w, h, headX, headTop, headW, headH } = geo;
 
-            // r1 : Écharpe Arc-en-ciel — autour du cou
+            // r1 : Écharpe en grosse maille tricotée — autour du cou, avec relief de tricot
             if (acc.has('r1')) {
-                const scarfColors = ['#FF6B9D','#FFC93C','#6BCB77','#4D96FF'];
-                const scarfY = headTop + headH * 1.05;
-                const scarfW = headW * 1.3;
+                const scarfColors = ['#D6336C','#F08C00','#2F9E44','#1971C2'];
+                const scarfY = headTop + headH * 1.0;
+                const scarfW = headW * 1.4;
+                const scarfH = headH * 0.32;
+                // Bande principale avec dégradé d'ombre (volume du tissu)
+                const sg = c.createLinearGradient(0, scarfY, 0, scarfY+scarfH);
+                sg.addColorStop(0, 'rgba(0,0,0,0.15)'); sg.addColorStop(0.5, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.2)');
                 for (let i = 0; i < 4; i++) {
                     c.fillStyle = scarfColors[i];
-                    c.fillRect(headX - headW*0.15 + i*(scarfW/4), scarfY, scarfW/4, headH*0.3);
+                    c.beginPath();
+                    c.roundRect(headX - headW*0.18 + i*(scarfW/4), scarfY, scarfW/4 + 1, scarfH, 3);
+                    c.fill();
                 }
+                // Texture de mailles tricotées (petits chevrons)
+                c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 1;
+                for (let i = 0; i < 10; i++) {
+                    const kx = headX - headW*0.15 + i*(scarfW/10);
+                    c.beginPath(); c.moveTo(kx, scarfY+2); c.lineTo(kx+scarfW*0.05, scarfY+scarfH/2); c.lineTo(kx, scarfY+scarfH-2); c.stroke();
+                }
+                c.fillStyle = sg; c.fillRect(headX - headW*0.18, scarfY, scarfW, scarfH);
+                // Pan qui retombe avec franges
                 c.fillStyle = scarfColors[1];
-                c.fillRect(headX + headW*0.05, scarfY + headH*0.25, headW*0.18, headH*0.55);
+                c.fillRect(headX + headW*0.08, scarfY + scarfH*0.7, headW*0.18, headH*0.6);
+                c.strokeStyle = scarfColors[1]; c.lineWidth = 1.5;
+                for (let i = 0; i < 4; i++) {
+                    const fx = headX + headW*0.1 + i*(headW*0.045);
+                    c.beginPath(); c.moveTo(fx, scarfY+scarfH*0.7+headH*0.6); c.lineTo(fx, scarfY+scarfH*0.7+headH*0.72); c.stroke();
+                }
             }
 
-            // r2 : Lunettes Stylées
+            // r2 : Lunettes de soleil stylées — monture épaisse, verres dégradés avec reflet
             if (acc.has('r2')) {
-                c.strokeStyle = '#1C1C1E';
-                c.lineWidth = headW * 0.045;
-                c.fillStyle = 'rgba(120, 200, 255, 0.55)';
                 const gy = headTop + headH * 0.42;
-                [headX + headW*0.18, headX + headW*0.5].forEach(gx => {
-                    c.beginPath(); c.arc(gx, gy, headW*0.13, 0, Math.PI*2); c.fill(); c.stroke();
+                [headX + headW*0.18, headX + headW*0.5].forEach((gx, i) => {
+                    const lensGrad = c.createLinearGradient(gx-headW*0.13, gy-headW*0.13, gx+headW*0.13, gy+headW*0.13);
+                    lensGrad.addColorStop(0, 'rgba(80,160,255,0.75)');
+                    lensGrad.addColorStop(1, 'rgba(20,40,90,0.85)');
+                    c.fillStyle = lensGrad;
+                    c.beginPath(); c.arc(gx, gy, headW*0.135, 0, Math.PI*2); c.fill();
+                    c.strokeStyle = '#1C1C1E'; c.lineWidth = headW * 0.04;
+                    c.beginPath(); c.arc(gx, gy, headW*0.135, 0, Math.PI*2); c.stroke();
+                    // Reflet sur le verre
+                    c.fillStyle = 'rgba(255,255,255,0.55)';
+                    c.beginPath(); c.arc(gx - headW*0.05, gy - headW*0.05, headW*0.035, 0, Math.PI*2); c.fill();
                 });
-                c.beginPath();
-                c.moveTo(headX + headW*0.3, gy); c.lineTo(headX + headW*0.38, gy);
-                c.stroke();
+                // Pont central
+                c.strokeStyle = '#1C1C1E'; c.lineWidth = headW*0.035;
+                c.beginPath(); c.moveTo(headX + headW*0.305, gy); c.lineTo(headX + headW*0.38, gy); c.stroke();
+                // Branches latérales
+                c.beginPath(); c.moveTo(headX + headW*0.05, gy); c.lineTo(headX - headW*0.06, gy - headH*0.05); c.stroke();
             }
 
-            // r3 : Couronne Dorée
+            // r3 : Couronne dorée avec gemmes et facettes métalliques
             if (acc.has('r3')) {
-                c.fillStyle = '#FFD60A';
-                const cw = headW * 0.7, ch = headH * 0.45;
-                const cx = headX + headW*0.15, cy = headTop - ch*0.85;
+                const cw = headW * 0.72, ch = headH * 0.48;
+                const cx = headX + headW*0.14, cy = headTop - ch*0.88;
+                const goldGrad = c.createLinearGradient(cx, cy, cx, cy+ch);
+                goldGrad.addColorStop(0, '#FFEA8A'); goldGrad.addColorStop(0.5, '#FFC93C'); goldGrad.addColorStop(1, '#D89A0E');
+                c.fillStyle = goldGrad;
                 c.beginPath();
                 c.moveTo(cx, cy + ch);
                 c.lineTo(cx, cy + ch*0.3); c.lineTo(cx + cw*0.2, cy + ch*0.65);
                 c.lineTo(cx + cw*0.5, cy); c.lineTo(cx + cw*0.8, cy + ch*0.65);
                 c.lineTo(cx + cw, cy + ch*0.3); c.lineTo(cx + cw, cy + ch);
                 c.closePath(); c.fill();
-                c.fillStyle = '#FF3B6E';
-                c.beginPath(); c.arc(cx + cw*0.5, cy + ch*0.55, cw*0.08, 0, Math.PI*2); c.fill();
+                // Bande de base sertie de petites perles
+                c.fillStyle = '#B8830A'; c.fillRect(cx, cy+ch*0.82, cw, ch*0.18);
+                for (let i = 0; i < 6; i++) {
+                    c.fillStyle = '#FFF6D9';
+                    c.beginPath(); c.arc(cx + cw*0.08 + i*(cw*0.16), cy+ch*0.91, ch*0.06, 0, Math.PI*2); c.fill();
+                }
+                // Gemme centrale facettée
+                c.fillStyle = '#E8294A';
+                c.beginPath(); c.arc(cx + cw*0.5, cy + ch*0.5, cw*0.09, 0, Math.PI*2); c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.6)';
+                c.beginPath(); c.arc(cx + cw*0.46, cy + ch*0.45, cw*0.025, 0, Math.PI*2); c.fill();
+                // Petites gemmes latérales
+                c.fillStyle = '#2F9E44';
+                c.beginPath(); c.arc(cx + cw*0.2, cy + ch*0.72, cw*0.04, 0, Math.PI*2); c.arc(cx + cw*0.8, cy + ch*0.72, cw*0.04, 0, Math.PI*2); c.fill();
             }
 
-            // r4 : Sac à Dos Voyageur
+            // r4 : Sac à dos voyageur — tissu texturé, poches, fermeture éclair
             if (acc.has('r4')) {
-                c.fillStyle = '#00A3FF';
-                const bw = w * 0.34, bh = h * 0.3;
-                const bx = baseX + w*0.18, by = headTop + headH*1.6;
+                const bw = w * 0.36, bh = h * 0.32;
+                const bx = baseX + w*0.16, by = headTop + headH*1.55;
+                const bagGrad = c.createLinearGradient(bx, by, bx+bw, by+bh);
+                bagGrad.addColorStop(0, '#339AF0'); bagGrad.addColorStop(1, '#1971C2');
+                c.fillStyle = bagGrad;
+                c.beginPath(); c.roundRect(bx, by, bw, bh, bw*0.22); c.fill();
+                // Poche avant
+                c.fillStyle = 'rgba(0,0,0,0.12)';
+                c.beginPath(); c.roundRect(bx+bw*0.15, by+bh*0.4, bw*0.7, bh*0.45, bw*0.15); c.fill();
+                // Fermeture éclair (ligne en zigzag)
+                c.strokeStyle = '#FFD43B'; c.lineWidth = bw*0.025;
                 c.beginPath();
-                c.roundRect(bx, by, bw, bh, bw*0.25);
-                c.fill();
-                c.strokeStyle = '#0077C2';
-                c.lineWidth = bw*0.08;
-                c.beginPath();
-                c.moveTo(bx + bw*0.15, by); c.lineTo(bx + bw*0.15, by - bh*0.3);
-                c.moveTo(bx + bw*0.85, by); c.lineTo(bx + bw*0.85, by - bh*0.3);
+                for (let i = 0; i <= 6; i++) {
+                    const zx = bx+bw*0.15 + i*(bw*0.7/6);
+                    c.lineTo(zx, by+bh*0.42 + (i%2)*bh*0.03);
+                }
                 c.stroke();
-                c.fillStyle = '#FFD60A';
-                c.beginPath(); c.roundRect(bx + bw*0.25, by + bh*0.2, bw*0.5, bh*0.3, 4); c.fill();
+                // Bretelles avec ombre
+                c.strokeStyle = '#0B5394'; c.lineWidth = bw*0.1; c.lineCap='round';
+                c.beginPath();
+                c.moveTo(bx + bw*0.12, by); c.lineTo(bx + bw*0.12, by - bh*0.35);
+                c.moveTo(bx + bw*0.88, by); c.lineTo(bx + bw*0.88, by - bh*0.35);
+                c.stroke();
+                // Petit badge/écusson coloré
+                c.fillStyle = '#FFD43B';
+                c.beginPath(); c.roundRect(bx + bw*0.3, by + bh*0.12, bw*0.4, bh*0.2, 4); c.fill();
             }
 
-            // r5 : Fusée Turbo — sanglée dans le dos
+            // r5 : Fusée turbo réacteur — corps métallique, hublot, flamme dégradée animée
             if (acc.has('r5')) {
-                const rx = baseX + w*0.22, ry = headTop + headH*1.4;
-                const rw = w*0.16, rh = h*0.45;
-                c.fillStyle = '#C780FA';
+                const rx = baseX + w*0.22, ry = headTop + headH*1.35;
+                const rw = w*0.17, rh = h*0.46;
+                const bodyGrad = c.createLinearGradient(rx, ry, rx+rw, ry);
+                bodyGrad.addColorStop(0, '#9775FA'); bodyGrad.addColorStop(0.5, '#E0D6FF'); bodyGrad.addColorStop(1, '#7048C9');
+                c.fillStyle = bodyGrad;
+                c.beginPath(); c.roundRect(rx, ry, rw, rh, rw*0.4); c.fill();
+                // Anneaux de renfort métalliques
+                c.strokeStyle = 'rgba(50,30,90,0.4)'; c.lineWidth = rw*0.06;
+                [0.25, 0.55].forEach(f => { c.beginPath(); c.moveTo(rx, ry+rh*f); c.lineTo(rx+rw, ry+rh*f); c.stroke(); });
+                // Hublot avec reflet
+                c.fillStyle = '#1C3D6B';
+                c.beginPath(); c.arc(rx+rw/2, ry+rh*0.32, rw*0.32, 0, Math.PI*2); c.fill();
+                c.fillStyle = 'rgba(180,220,255,0.8)';
+                c.beginPath(); c.arc(rx+rw/2, ry+rh*0.32, rw*0.22, 0, Math.PI*2); c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.7)';
+                c.beginPath(); c.arc(rx+rw*0.42, ry+rh*0.26, rw*0.07, 0, Math.PI*2); c.fill();
+                // Empennage
+                c.fillStyle = '#5F3DC4';
+                c.beginPath(); c.moveTo(rx, ry+rh*0.75); c.lineTo(rx-rw*0.5, ry+rh); c.lineTo(rx, ry+rh*0.95); c.fill();
+                c.beginPath(); c.moveTo(rx+rw, ry+rh*0.75); c.lineTo(rx+rw*1.5, ry+rh); c.lineTo(rx+rw, ry+rh*0.95); c.fill();
+                // Flamme de propulsion dégradée
+                const flameGrad = c.createLinearGradient(rx, ry+rh, rx, ry+rh+rh*0.4);
+                flameGrad.addColorStop(0, '#FFD43B'); flameGrad.addColorStop(0.5, '#FF9500'); flameGrad.addColorStop(1, 'rgba(255,82,0,0)');
+                c.fillStyle = flameGrad;
                 c.beginPath();
-                c.roundRect(rx, ry, rw, rh, rw*0.4);
+                c.moveTo(rx + rw*0.15, ry + rh);
+                c.quadraticCurveTo(rx + rw*0.5, ry + rh + rh*0.5, rx + rw*0.85, ry + rh);
+                c.quadraticCurveTo(rx + rw*0.5, ry + rh*0.92, rx + rw*0.15, ry + rh);
                 c.fill();
-                c.fillStyle = '#FF9500';
-                c.beginPath();
-                c.moveTo(rx, ry + rh); c.lineTo(rx + rw/2, ry + rh + rh*0.35); c.lineTo(rx + rw, ry + rh);
-                c.closePath(); c.fill();
-                c.fillStyle = '#FFD60A';
-                c.beginPath(); c.arc(rx + rw/2, ry + rh*0.3, rw*0.3, 0, Math.PI*2); c.fill();
             }
 
-            // r6 : Lama Légendaire — halo étoilé scintillant
+            // r6 : Halo légendaire — étoiles scintillantes multi-couches + particules dorées
             if (acc.has('r6')) {
                 c.save();
-                c.fillStyle = 'rgba(255, 214, 10, 0.85)';
-                c.shadowBlur = 18; c.shadowColor = '#FFD60A';
                 const starPositions = [
-                    [headX - headW*0.25, headTop - headH*0.5],
-                    [headX + headW*1.15, headTop + headH*0.1],
-                    [headX + headW*0.5, headTop - headH*1.0],
+                    [headX - headW*0.28, headTop - headH*0.55, 1],
+                    [headX + headW*1.18, headTop + headH*0.05, 0.7],
+                    [headX + headW*0.5, headTop - headH*1.05, 1.2],
+                    [headX - headW*0.05, headTop + headH*0.9, 0.5],
                 ];
-                starPositions.forEach(([sx, sy]) => drawStar(c, sx, sy, headW*0.09));
+                starPositions.forEach(([sx, sy, scale]) => {
+                    c.fillStyle = 'rgba(255, 214, 10, 0.9)';
+                    c.shadowBlur = 16 * scale; c.shadowColor = '#FFD60A';
+                    drawStar(c, sx, sy, headW*0.09*scale);
+                    c.fillStyle = 'rgba(255,255,255,0.8)';
+                    c.shadowBlur = 6;
+                    drawStar(c, sx, sy, headW*0.04*scale);
+                });
+                // Fines particules dorées flottantes
+                c.shadowBlur = 8; c.shadowColor = '#FFD60A';
+                c.fillStyle = 'rgba(255, 224, 102, 0.7)';
+                for (let i = 0; i < 5; i++) {
+                    const px = headX + headW*0.5 + Math.sin(i*1.7)*headW*0.9;
+                    const py = headTop + headH*0.3 + Math.cos(i*2.1)*headH*1.4;
+                    c.beginPath(); c.arc(px, py, headW*0.018, 0, Math.PI*2); c.fill();
+                }
                 c.restore();
             }
         }
