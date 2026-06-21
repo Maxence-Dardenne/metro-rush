@@ -365,6 +365,93 @@
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
+
+        /* --- ÉCRAN CHOIX DE L'ANIMAL --- */
+        .animal-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .animal-card {
+            background: rgba(255,255,255,0.07);
+            border: 2px solid rgba(255,255,255,0.12);
+            border-radius: 18px;
+            padding: 10px 6px 12px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .animal-card:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+        .animal-card.selected {
+            border-color: #00C2A8;
+            background: linear-gradient(135deg, rgba(0,194,168,0.22), rgba(0,163,255,0.14));
+            box-shadow: 0 8px 20px rgba(0,194,168,0.3);
+        }
+        .animal-card canvas {
+            width: 100%;
+            height: 64px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .animal-card .animal-name {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .animal-card .animal-check {
+            font-size: 0.85rem;
+            color: #00C2A8;
+            margin-top: 2px;
+            height: 14px;
+        }
+
+        /* --- TOGGLE ACCESSOIRES DANS L'ÉCRAN RÉCOMPENSES --- */
+        .reward-toggle {
+            width: 46px;
+            height: 26px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.15);
+            position: relative;
+            cursor: pointer;
+            pointer-events: auto;
+            flex-shrink: 0;
+            transition: background 0.2s ease;
+        }
+        .reward-toggle.on {
+            background: linear-gradient(135deg, #00C2A8, #00A3FF);
+        }
+        .reward-toggle .knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .reward-toggle.on .knob {
+            transform: translateX(20px);
+        }
+
+        .preview-box {
+            background: rgba(0,0,0,0.18);
+            border-radius: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .preview-box canvas {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -395,6 +482,7 @@
 
                 <div class="menu-grid">
                     <button class="btn" id="play-btn">▶️ Jouer</button>
+                    <button class="btn teal" id="animal-select-btn">🐾 Choisir mon animal</button>
                     <button class="btn teal" id="rewards-btn">🏆 Récompenses</button>
                     <button class="btn secondary" id="howto-btn">❓ Comment jouer</button>
                 </div>
@@ -418,6 +506,17 @@
             </div>
         </div>
 
+        <!-- ÉCRAN CHOISIR MON ANIMAL -->
+        <div class="screen" id="animal-screen">
+            <div class="panel">
+                <div class="emoji-row">🐾</div>
+                <h1>Mon Animal</h1>
+                <p>Choisis qui va courir dans le métro ! Tous les animaux sont disponibles dès maintenant 🎉</p>
+                <div class="animal-grid" id="animal-grid"></div>
+                <button class="btn secondary" id="animal-back-btn">⬅️ Retour au menu</button>
+            </div>
+        </div>
+
         <!-- ÉCRAN RÉCOMPENSES -->
         <div class="screen" id="rewards-screen">
             <div class="panel">
@@ -427,6 +526,8 @@
                 <div class="total-coins-banner">
                     🪙 <span id="rewards-total-coins">0</span> pièces au total
                 </div>
+                <div class="preview-box" id="rewards-preview-box"></div>
+                <p style="margin-top:-10px; font-size:0.82rem;">Active un accessoire débloqué pour l'équiper sur ton animal 👇</p>
                 <div class="rewards-list" id="rewards-list"></div>
                 <button class="btn secondary" id="rewards-back-btn">⬅️ Retour au menu</button>
             </div>
@@ -478,11 +579,16 @@
         const startScreen = document.getElementById('start-screen');
         const howtoScreen = document.getElementById('howto-screen');
         const rewardsScreen = document.getElementById('rewards-screen');
+        const animalScreen = document.getElementById('animal-screen');
         const pauseScreen = document.getElementById('pause-screen');
         const gameoverScreen = document.getElementById('gameover-screen');
 
         const playBtn = document.getElementById('play-btn');
         const rewardsBtn = document.getElementById('rewards-btn');
+        const animalSelectBtn = document.getElementById('animal-select-btn');
+        const animalBackBtn = document.getElementById('animal-back-btn');
+        const animalGrid = document.getElementById('animal-grid');
+        const rewardsPreviewBox = document.getElementById('rewards-preview-box');
         const howtoBtn = document.getElementById('howto-btn');
         const howtoBackBtn = document.getElementById('howto-back-btn');
         const rewardsBackBtn = document.getElementById('rewards-back-btn');
@@ -544,6 +650,28 @@
         let totalCoins = loadTotalCoins();
         let unlockedRewards = loadUnlocked();
 
+        // --- ACCESSOIRES ÉQUIPÉS (visibles sur n'importe quel animal) ---
+        function loadEquipped() {
+            try {
+                return new Set(JSON.parse(localStorage.getItem('metroRushEquipped') || '[]'));
+            } catch (e) { return new Set(); }
+        }
+        function saveEquipped(set) {
+            localStorage.setItem('metroRushEquipped', JSON.stringify([...set]));
+        }
+        let equippedAccessories = loadEquipped();
+
+        function toggleAccessory(id) {
+            if (equippedAccessories.has(id)) {
+                equippedAccessories.delete(id);
+            } else {
+                equippedAccessories.add(id);
+            }
+            saveEquipped(equippedAccessories);
+            renderRewardsList();
+            drawRewardsPreview();
+        }
+
         function checkNewRewards(prevTotal, newTotal) {
             const newlyUnlocked = [];
             REWARDS.forEach(r => {
@@ -560,6 +688,7 @@
             rewardsList.innerHTML = '';
             REWARDS.forEach(r => {
                 const unlocked = unlockedRewards.includes(r.id);
+                const equipped = equippedAccessories.has(r.id);
                 const div = document.createElement('div');
                 div.className = 'reward-item' + (unlocked ? ' unlocked' : '');
                 div.innerHTML = `
@@ -568,9 +697,68 @@
                         <div class="reward-title">${r.title}</div>
                         <div class="reward-sub">${r.sub}</div>
                     </div>
-                    ${unlocked ? '<div class="reward-check">✅</div>' : ''}
+                    ${unlocked ? `<div class="reward-toggle ${equipped ? 'on' : ''}" data-reward-id="${r.id}"><div class="knob"></div></div>` : ''}
                 `;
                 rewardsList.appendChild(div);
+            });
+
+            rewardsList.querySelectorAll('.reward-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => toggleAccessory(toggle.dataset.rewardId));
+            });
+        }
+
+        // --- APERÇU LIVE DE L'ANIMAL + ACCESSOIRES (écran Récompenses) ---
+        let rewardsPreviewCanvas = null;
+        function ensureRewardsPreviewCanvas() {
+            if (rewardsPreviewCanvas) return rewardsPreviewCanvas;
+            const c = document.createElement('canvas');
+            c.width = 220; c.height = 200;
+            rewardsPreviewBox.appendChild(c);
+            rewardsPreviewCanvas = c;
+            return c;
+        }
+        function drawRewardsPreview() {
+            const c = ensureRewardsPreviewCanvas();
+            const pctx = c.getContext('2d');
+            pctx.clearRect(0, 0, c.width, c.height);
+            const animal = ANIMALS[selectedAnimal] || ANIMALS.llama;
+            const baseX = c.width / 2;
+            const baseY = c.height * 0.86;
+            const w = 80, h = 150;
+            pctx.fillStyle = 'rgba(0,0,0,0.25)';
+            pctx.beginPath();
+            pctx.ellipse(baseX, baseY, w*0.5, h*0.07, 0, 0, Math.PI*2);
+            pctx.fill();
+            animal.draw(pctx, baseX, baseY, w, h, 0, equippedAccessories);
+        }
+
+        // --- GRILLE DE SÉLECTION D'ANIMAL (écran dédié) ---
+        function renderAnimalGrid() {
+            animalGrid.innerHTML = '';
+            Object.keys(ANIMALS).forEach(key => {
+                const animal = ANIMALS[key];
+                const card = document.createElement('div');
+                card.className = 'animal-card' + (selectedAnimal === key ? ' selected' : '');
+                card.innerHTML = `
+                    <canvas width="120" height="128"></canvas>
+                    <div class="animal-name">${animal.icon} ${animal.name}</div>
+                    <div class="animal-check">${selectedAnimal === key ? '✅ Équipé' : ''}</div>
+                `;
+                const cv = card.querySelector('canvas');
+                const actx = cv.getContext('2d');
+                const baseX = 60, baseY = 116, w = 56, h = 100;
+                actx.fillStyle = 'rgba(0,0,0,0.2)';
+                actx.beginPath();
+                actx.ellipse(baseX, baseY, w*0.5, h*0.07, 0, 0, Math.PI*2);
+                actx.fill();
+                animal.draw(actx, baseX, baseY, w, h, 0, equippedAccessories);
+
+                card.addEventListener('click', () => {
+                    selectedAnimal = key;
+                    saveSelectedAnimal(key);
+                    renderAnimalGrid();
+                });
+                animalGrid.appendChild(card);
             });
         }
 
@@ -617,7 +805,526 @@
             };
         }
 
-        // --- CLASSE DU JOUEUR : UN LAMA 3D TRÈS COLORÉ 🦙 ---
+        // --- DÉFINITION DES ANIMAUX JOUABLES ---
+        // Chaque animal expose draw(ctx, baseX, baseY, w, h, legSwing, accessorySet)
+        // dessiné en coordonnées écran déjà projetées (réutilisable en jeu ET en aperçu menu).
+        const ANIMALS = {
+            llama: {
+                name: 'Lama',
+                icon: '🦙',
+                colors: ['#FF6B9D', '#FFC93C', '#6BCB77', '#4D96FF', '#C780FA'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.14, legH = h * 0.32;
+                    c.fillStyle = '#3A2E26';
+                    c.fillRect(baseX - w * 0.32, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.18, baseY - legH - legSwing, legW, legH);
+
+                    const bodyH = h * 0.62;
+                    const bodyTop = baseY - legH - bodyH * 0.78;
+                    const grad = c.createLinearGradient(baseX - w/2, bodyTop, baseX + w/2, bodyTop + bodyH);
+                    grad.addColorStop(0, this.colors[0]); grad.addColorStop(0.5, this.colors[2]); grad.addColorStop(1, this.colors[3]);
+                    c.fillStyle = grad;
+                    c.beginPath();
+                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, [w*0.35, w*0.35, w*0.2, w*0.2]);
+                    c.fill();
+
+                    const poms = [this.colors[1], this.colors[4], this.colors[0]];
+                    for (let i = 0; i < 3; i++) {
+                        c.fillStyle = poms[i];
+                        c.beginPath();
+                        c.arc(baseX - w*0.22 + i * (w*0.22), bodyTop + bodyH*0.45, w*0.09, 0, Math.PI*2);
+                        c.fill();
+                    }
+
+                    const neckW = w * 0.34, neckH = h * 0.42;
+                    const neckX = baseX - neckW/2 + w*0.08;
+                    const neckTop = bodyTop - neckH * 0.85;
+                    c.fillStyle = this.colors[3];
+                    c.beginPath();
+                    c.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.15, neckW*0.15]);
+                    c.fill();
+
+                    const headW = w * 0.46, headH = h * 0.26;
+                    const headX = neckX + neckW/2 - headW/2;
+                    const headTop = neckTop - headH * 0.8;
+                    c.fillStyle = '#FFF6E9';
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.32);
+                    c.fill();
+
+                    c.fillStyle = '#FFE0C2';
+                    c.beginPath();
+                    c.roundRect(headX + headW*0.55, headTop + headH*0.4, headW*0.55, headH*0.5, headW*0.18);
+                    c.fill();
+
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.ellipse(headX + headW*0.18, headTop - headH*0.18, headW*0.1, headH*0.32, -0.2, 0, Math.PI*2);
+                    c.ellipse(headX + headW*0.42, headTop - headH*0.2, headW*0.1, headH*0.34, 0.1, 0, Math.PI*2);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.32, headTop + headH*0.42, headW*0.06);
+
+                    c.fillStyle = '#D98E5F';
+                    c.beginPath();
+                    c.arc(headX + headW*0.95, headTop + headH*0.65, headW*0.035, 0, Math.PI*2);
+                    c.fill();
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'tall' });
+                }
+            },
+
+            pig: {
+                name: 'Cochon',
+                icon: '🐷',
+                colors: ['#FF9FC7', '#FFB6D9', '#FF7AAE'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.16, legH = h * 0.22;
+                    c.fillStyle = '#E07FA8';
+                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.16, baseY - legH - legSwing, legW, legH);
+
+                    const bodyH = h * 0.55;
+                    const bodyTop = baseY - legH - bodyH * 0.92;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.ellipse(baseX, bodyTop + bodyH/2, w*0.56, bodyH/2, 0, 0, Math.PI*2);
+                    c.fill();
+
+                    // Petite queue en tire-bouchon
+                    c.strokeStyle = this.colors[2];
+                    c.lineWidth = w * 0.04;
+                    c.beginPath();
+                    c.arc(baseX + w*0.5, bodyTop + bodyH*0.35, w*0.08, 0, Math.PI*1.5);
+                    c.stroke();
+
+                    const headW = w * 0.62, headH = h * 0.32;
+                    const headX = baseX - headW/2 + w*0.18;
+                    const headTop = bodyTop - headH * 0.55;
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.3);
+                    c.fill();
+
+                    // Groin (museau rond caractéristique)
+                    c.fillStyle = '#FF5E94';
+                    c.beginPath();
+                    c.roundRect(headX + headW*0.62, headTop + headH*0.45, headW*0.42, headH*0.42, headW*0.14);
+                    c.fill();
+                    c.fillStyle = '#C24477';
+                    c.beginPath();
+                    c.arc(headX + headW*0.78, headTop + headH*0.66, headW*0.04, 0, Math.PI*2);
+                    c.arc(headX + headW*0.95, headTop + headH*0.66, headW*0.04, 0, Math.PI*2);
+                    c.fill();
+
+                    // Oreilles triangulaires tombantes
+                    c.fillStyle = this.colors[2];
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.08, headTop);
+                    c.lineTo(headX - headW*0.05, headTop - headH*0.4);
+                    c.lineTo(headX + headW*0.32, headTop + headH*0.1);
+                    c.fill();
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.42, headTop);
+                    c.lineTo(headX + headW*0.4, headTop - headH*0.45);
+                    c.lineTo(headX + headW*0.65, headTop + headH*0.08);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.34, headTop + headH*0.4, headW*0.05);
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
+                }
+            },
+
+            cat: {
+                name: 'Chat',
+                icon: '🐱',
+                colors: ['#FFA94D', '#FF8C2E', '#FFD8A8'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.13, legH = h * 0.3;
+                    c.fillStyle = this.colors[1];
+                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
+
+                    const bodyH = h * 0.5;
+                    const bodyTop = baseY - legH - bodyH * 0.85;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.3);
+                    c.fill();
+
+                    // Queue arquée
+                    c.strokeStyle = this.colors[0];
+                    c.lineWidth = w * 0.09;
+                    c.lineCap = 'round';
+                    c.beginPath();
+                    c.moveTo(baseX + w*0.45, bodyTop + bodyH*0.5);
+                    c.quadraticCurveTo(baseX + w*0.85, bodyTop + bodyH*0.2, baseX + w*0.7, bodyTop - bodyH*0.45);
+                    c.stroke();
+
+                    // Rayures tigrées
+                    c.strokeStyle = this.colors[1];
+                    c.lineWidth = w * 0.035;
+                    for (let i = 0; i < 3; i++) {
+                        c.beginPath();
+                        c.moveTo(baseX - w*0.15 + i*w*0.13, bodyTop + bodyH*0.1);
+                        c.lineTo(baseX - w*0.2 + i*w*0.13, bodyTop + bodyH*0.75);
+                        c.stroke();
+                    }
+
+                    const headW = w * 0.5, headH = h * 0.28;
+                    const headX = baseX - headW/2;
+                    const headTop = bodyTop - headH * 0.78;
+                    c.fillStyle = this.colors[2];
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.35);
+                    c.fill();
+
+                    // Oreilles triangulaires pointues
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.08, headTop + headH*0.15);
+                    c.lineTo(headX + headW*0.02, headTop - headH*0.55);
+                    c.lineTo(headX + headW*0.32, headTop + headH*0.05);
+                    c.fill();
+                    c.beginPath();
+                    c.moveTo(headX + headW*0.68, headTop + headH*0.05);
+                    c.lineTo(headX + headW*0.98, headTop - headH*0.55);
+                    c.lineTo(headX + headW*0.92, headTop + headH*0.15);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.32, headTop + headH*0.5, headW*0.06);
+
+                    // Moustaches
+                    c.strokeStyle = 'rgba(255,255,255,0.7)';
+                    c.lineWidth = 1;
+                    [0.55, 0.65, 0.75].forEach(f => {
+                        c.beginPath(); c.moveTo(headX + headW*0.6, headTop + headH*f); c.lineTo(headX + headW*1.05, headTop + headH*(f-0.05)); c.stroke();
+                    });
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
+                }
+            },
+
+            dog: {
+                name: 'Chien',
+                icon: '🐶',
+                colors: ['#D9A066', '#C2884F', '#F2C98A'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.15, legH = h * 0.34;
+                    c.fillStyle = this.colors[1];
+                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
+
+                    const bodyH = h * 0.55;
+                    const bodyTop = baseY - legH - bodyH * 0.85;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.28);
+                    c.fill();
+
+                    // Queue remuante
+                    c.strokeStyle = this.colors[0];
+                    c.lineWidth = w*0.1;
+                    c.lineCap = 'round';
+                    c.beginPath();
+                    c.moveTo(baseX + w*0.46, bodyTop + bodyH*0.4);
+                    c.quadraticCurveTo(baseX + w*0.75, bodyTop, baseX + w*0.6, bodyTop - bodyH*0.4);
+                    c.stroke();
+
+                    const headW = w * 0.56, headH = h * 0.3;
+                    const headX = baseX - headW/2 + w*0.04;
+                    const headTop = bodyTop - headH * 0.7;
+                    c.fillStyle = this.colors[2];
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.3);
+                    c.fill();
+
+                    // Museau allongé
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(headX + headW*0.62, headTop + headH*0.35, headW*0.45, headH*0.5, headW*0.16);
+                    c.fill();
+                    c.fillStyle = '#3A2E26';
+                    c.beginPath();
+                    c.arc(headX + headW*1.0, headTop + headH*0.58, headW*0.05, 0, Math.PI*2);
+                    c.fill();
+
+                    // Oreilles tombantes
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.ellipse(headX + headW*0.1, headTop + headH*0.35, headW*0.13, headH*0.55, -0.25, 0, Math.PI*2);
+                    c.ellipse(headX + headW*0.42, headTop + headH*0.15, headW*0.11, headH*0.5, 0.15, 0, Math.PI*2);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.32, headTop + headH*0.4, headW*0.055);
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
+                }
+            },
+
+            squirrel: {
+                name: 'Écureuil',
+                icon: '🐿️',
+                colors: ['#D9763B', '#B85C28', '#F2A766'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.12, legH = h * 0.26;
+                    c.fillStyle = this.colors[1];
+                    c.fillRect(baseX - w * 0.26, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.14, baseY - legH - legSwing, legW, legH);
+
+                    const bodyH = h * 0.46;
+                    const bodyTop = baseY - legH - bodyH * 0.9;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.ellipse(baseX - w*0.05, bodyTop + bodyH/2, w*0.4, bodyH/2, 0, 0, Math.PI*2);
+                    c.fill();
+
+                    // Grande queue touffue et arquée (signature de l'écureuil)
+                    c.fillStyle = this.colors[2];
+                    c.beginPath();
+                    c.moveTo(baseX + w*0.2, bodyTop + bodyH*0.6);
+                    c.quadraticCurveTo(baseX + w*0.95, bodyTop + bodyH*0.5, baseX + w*0.75, bodyTop - bodyH*1.3);
+                    c.quadraticCurveTo(baseX + w*0.55, bodyTop - bodyH*1.6, baseX + w*0.35, bodyTop - bodyH*0.6);
+                    c.quadraticCurveTo(baseX + w*0.45, bodyTop, baseX + w*0.2, bodyTop + bodyH*0.6);
+                    c.fill();
+                    c.strokeStyle = this.colors[1];
+                    c.lineWidth = w*0.025;
+                    c.beginPath();
+                    c.moveTo(baseX + w*0.3, bodyTop - bodyH*0.1);
+                    c.lineTo(baseX + w*0.6, bodyTop - bodyH*1.1);
+                    c.stroke();
+
+                    const headW = w * 0.42, headH = h * 0.24;
+                    const headX = baseX - headW/2 - w*0.06;
+                    const headTop = bodyTop - headH * 0.7;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.4);
+                    c.fill();
+
+                    // Petites oreilles rondes
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.arc(headX + headW*0.2, headTop, headW*0.13, 0, Math.PI*2);
+                    c.arc(headX + headW*0.7, headTop, headW*0.13, 0, Math.PI*2);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.28, headTop + headH*0.5, headW*0.07);
+
+                    c.fillStyle = '#FFF3E0';
+                    c.beginPath();
+                    c.ellipse(headX + headW*0.75, headTop + headH*0.65, headW*0.18, headH*0.22, 0, 0, Math.PI*2);
+                    c.fill();
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'round' });
+                }
+            },
+
+            zebra: {
+                name: 'Zèbre',
+                icon: '🦓',
+                colors: ['#FFFFFF', '#2B2B2E', '#F4F4F6'],
+                draw(c, baseX, baseY, w, h, legSwing, acc) {
+                    const legW = w * 0.14, legH = h * 0.34;
+                    c.fillStyle = '#F4F4F6';
+                    c.fillRect(baseX - w * 0.3, baseY - legH + legSwing, legW, legH);
+                    c.fillRect(baseX + w * 0.17, baseY - legH - legSwing, legW, legH);
+                    c.fillStyle = this.colors[1];
+                    [-0.3, 0.17].forEach((off, i) => {
+                        const ly = baseY - legH + (i===0? legSwing : -legSwing);
+                        c.fillRect(baseX + w*off, ly + legH*0.25, legW, legH*0.12);
+                        c.fillRect(baseX + w*off, ly + legH*0.6, legW, legH*0.12);
+                    });
+
+                    const bodyH = h * 0.58;
+                    const bodyTop = baseY - legH - bodyH * 0.8;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(baseX - w/2, bodyTop, w, bodyH, w*0.25);
+                    c.fill();
+
+                    // Rayures noires verticales caractéristiques du zèbre
+                    c.fillStyle = this.colors[1];
+                    for (let i = 0; i < 5; i++) {
+                        c.save();
+                        c.translate(baseX - w*0.4 + i*(w*0.21), bodyTop);
+                        c.beginPath();
+                        c.moveTo(0, 0); c.lineTo(w*0.07, 0); c.lineTo(w*0.04, bodyH); c.lineTo(-w*0.03, bodyH);
+                        c.closePath(); c.fill();
+                        c.restore();
+                    }
+
+                    // Crinière en pics noirs/blancs
+                    const neckW = w * 0.3, neckH = h * 0.38;
+                    const neckX = baseX - neckW/2 + w*0.1;
+                    const neckTop = bodyTop - neckH * 0.8;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.1, neckW*0.1]);
+                    c.fill();
+                    c.fillStyle = this.colors[1];
+                    for (let i = 0; i < 4; i++) {
+                        c.beginPath();
+                        c.moveTo(neckX + neckW*0.5 - 4, neckTop - neckH*0.05 + i*(neckH*0.18));
+                        c.lineTo(neckX + neckW*0.5 + neckW*0.35, neckTop + i*(neckH*0.18));
+                        c.lineTo(neckX + neckW*0.5 - 4, neckTop + neckH*0.13 + i*(neckH*0.18));
+                        c.fill();
+                    }
+
+                    const headW = w * 0.4, headH = h * 0.24;
+                    const headX = neckX + neckW/2 - headW/2;
+                    const headTop = neckTop - headH * 0.75;
+                    c.fillStyle = this.colors[0];
+                    c.beginPath();
+                    c.roundRect(headX, headTop, headW, headH, headW*0.3);
+                    c.fill();
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.roundRect(headX + headW*0.5, headTop + headH*0.3, headW*0.5, headH*0.45, headW*0.15);
+                    c.fill();
+
+                    c.fillStyle = this.colors[1];
+                    c.beginPath();
+                    c.ellipse(headX + headW*0.15, headTop - headH*0.15, headW*0.1, headH*0.3, -0.2, 0, Math.PI*2);
+                    c.ellipse(headX + headW*0.4, headTop - headH*0.18, headW*0.1, headH*0.32, 0.1, 0, Math.PI*2);
+                    c.fill();
+
+                    drawEyes(c, headX + headW*0.28, headTop + headH*0.4, headW*0.05);
+
+                    drawAccessories(c, acc, { baseX, baseY, w, h, headX, headTop, headW, headH, style: 'tall' });
+                }
+            }
+        };
+
+        // Petite aide pour des yeux mignons cohérents sur tous les animaux
+        function drawEyes(c, x, y, size) {
+            c.fillStyle = '#1C1C1E';
+            c.beginPath(); c.arc(x, y, size, 0, Math.PI*2); c.fill();
+            c.fillStyle = '#FFFFFF';
+            c.beginPath(); c.arc(x + size*0.3, y - size*0.3, size*0.32, 0, Math.PI*2); c.fill();
+        }
+
+        // --- RENDU DES ACCESSOIRES DÉBLOQUÉS PAR LES RÉCOMPENSES ---
+        // acc = Set des ids d'accessoires actuellement équipés (ex: {'r1','r3'})
+        function drawAccessories(c, acc, geo) {
+            if (!acc || acc.size === 0) return;
+            const { baseX, w, h, headX, headTop, headW, headH } = geo;
+
+            // r1 : Écharpe Arc-en-ciel — autour du cou
+            if (acc.has('r1')) {
+                const scarfColors = ['#FF6B9D','#FFC93C','#6BCB77','#4D96FF'];
+                const scarfY = headTop + headH * 1.05;
+                const scarfW = headW * 1.3;
+                for (let i = 0; i < 4; i++) {
+                    c.fillStyle = scarfColors[i];
+                    c.fillRect(headX - headW*0.15 + i*(scarfW/4), scarfY, scarfW/4, headH*0.3);
+                }
+                c.fillStyle = scarfColors[1];
+                c.fillRect(headX + headW*0.05, scarfY + headH*0.25, headW*0.18, headH*0.55);
+            }
+
+            // r2 : Lunettes Stylées
+            if (acc.has('r2')) {
+                c.strokeStyle = '#1C1C1E';
+                c.lineWidth = headW * 0.045;
+                c.fillStyle = 'rgba(120, 200, 255, 0.55)';
+                const gy = headTop + headH * 0.42;
+                [headX + headW*0.18, headX + headW*0.5].forEach(gx => {
+                    c.beginPath(); c.arc(gx, gy, headW*0.13, 0, Math.PI*2); c.fill(); c.stroke();
+                });
+                c.beginPath();
+                c.moveTo(headX + headW*0.3, gy); c.lineTo(headX + headW*0.38, gy);
+                c.stroke();
+            }
+
+            // r3 : Couronne Dorée
+            if (acc.has('r3')) {
+                c.fillStyle = '#FFD60A';
+                const cw = headW * 0.7, ch = headH * 0.45;
+                const cx = headX + headW*0.15, cy = headTop - ch*0.85;
+                c.beginPath();
+                c.moveTo(cx, cy + ch);
+                c.lineTo(cx, cy + ch*0.3); c.lineTo(cx + cw*0.2, cy + ch*0.65);
+                c.lineTo(cx + cw*0.5, cy); c.lineTo(cx + cw*0.8, cy + ch*0.65);
+                c.lineTo(cx + cw, cy + ch*0.3); c.lineTo(cx + cw, cy + ch);
+                c.closePath(); c.fill();
+                c.fillStyle = '#FF3B6E';
+                c.beginPath(); c.arc(cx + cw*0.5, cy + ch*0.55, cw*0.08, 0, Math.PI*2); c.fill();
+            }
+
+            // r4 : Sac à Dos Voyageur
+            if (acc.has('r4')) {
+                c.fillStyle = '#00A3FF';
+                const bw = w * 0.34, bh = h * 0.3;
+                const bx = baseX + w*0.18, by = headTop + headH*1.6;
+                c.beginPath();
+                c.roundRect(bx, by, bw, bh, bw*0.25);
+                c.fill();
+                c.strokeStyle = '#0077C2';
+                c.lineWidth = bw*0.08;
+                c.beginPath();
+                c.moveTo(bx + bw*0.15, by); c.lineTo(bx + bw*0.15, by - bh*0.3);
+                c.moveTo(bx + bw*0.85, by); c.lineTo(bx + bw*0.85, by - bh*0.3);
+                c.stroke();
+                c.fillStyle = '#FFD60A';
+                c.beginPath(); c.roundRect(bx + bw*0.25, by + bh*0.2, bw*0.5, bh*0.3, 4); c.fill();
+            }
+
+            // r5 : Fusée Turbo — sanglée dans le dos
+            if (acc.has('r5')) {
+                const rx = baseX + w*0.22, ry = headTop + headH*1.4;
+                const rw = w*0.16, rh = h*0.45;
+                c.fillStyle = '#C780FA';
+                c.beginPath();
+                c.roundRect(rx, ry, rw, rh, rw*0.4);
+                c.fill();
+                c.fillStyle = '#FF9500';
+                c.beginPath();
+                c.moveTo(rx, ry + rh); c.lineTo(rx + rw/2, ry + rh + rh*0.35); c.lineTo(rx + rw, ry + rh);
+                c.closePath(); c.fill();
+                c.fillStyle = '#FFD60A';
+                c.beginPath(); c.arc(rx + rw/2, ry + rh*0.3, rw*0.3, 0, Math.PI*2); c.fill();
+            }
+
+            // r6 : Lama Légendaire — halo étoilé scintillant
+            if (acc.has('r6')) {
+                c.save();
+                c.fillStyle = 'rgba(255, 214, 10, 0.85)';
+                c.shadowBlur = 18; c.shadowColor = '#FFD60A';
+                const starPositions = [
+                    [headX - headW*0.25, headTop - headH*0.5],
+                    [headX + headW*1.15, headTop + headH*0.1],
+                    [headX + headW*0.5, headTop - headH*1.0],
+                ];
+                starPositions.forEach(([sx, sy]) => drawStar(c, sx, sy, headW*0.09));
+                c.restore();
+            }
+        }
+
+        function drawStar(c, cx, cy, r) {
+            c.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const a1 = (Math.PI * 2 * i) / 5 - Math.PI/2;
+                const a2 = a1 + Math.PI/5;
+                c.lineTo(cx + r * Math.cos(a1), cy + r * Math.sin(a1));
+                c.lineTo(cx + r * 0.45 * Math.cos(a2), cy + r * 0.45 * Math.sin(a2));
+            }
+            c.closePath();
+            c.fill();
+        }
+
+        // --- PERSISTANCE DU CHOIX D'ANIMAL ---
+        function loadSelectedAnimal() {
+            const saved = localStorage.getItem('metroRushAnimal');
+            return (saved && ANIMALS[saved]) ? saved : 'llama';
+        }
+        function saveSelectedAnimal(key) {
+            localStorage.setItem('metroRushAnimal', key);
+        }
+        let selectedAnimal = loadSelectedAnimal();
+
+        // --- CLASSE DU JOUEUR (générique, pilote l'animal choisi) ---
         class Player {
             constructor() {
                 this.lane = 0;
@@ -637,9 +1344,6 @@
 
                 this.bobTimer = 0;
                 this.legPhase = 0;
-
-                // Palette du pelage du lama : dégradé arc-en-ciel pastel vif
-                this.woolColors = ['#FF6B9D', '#FFC93C', '#6BCB77', '#4D96FF', '#C780FA'];
             }
 
             update() {
@@ -678,7 +1382,6 @@
 
                 ctx.save();
 
-                // Ombre portée au sol
                 const groundP = project3D(this.x3d, 0, this.z3d);
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
                 ctx.beginPath();
@@ -687,84 +1390,10 @@
 
                 const baseX = p.x;
                 const baseY = p.y + bob;
-
-                // --- PATTES (alternance de marche) ---
-                const legW = w * 0.14;
-                const legH = h * 0.32;
                 const legSwing = Math.sin(this.legPhase) * (h * 0.05);
-                ctx.fillStyle = '#3A2E26';
-                ctx.fillRect(baseX - w * 0.32, baseY - legH + legSwing, legW, legH);
-                ctx.fillRect(baseX + w * 0.18, baseY - legH - legSwing, legW, legH);
 
-                // --- CORPS (laine colorée arrondie) ---
-                const bodyH = h * 0.62;
-                const bodyTop = baseY - legH - bodyH * 0.78;
-                const bodyGrad = ctx.createLinearGradient(baseX - w/2, bodyTop, baseX + w/2, bodyTop + bodyH);
-                bodyGrad.addColorStop(0, this.woolColors[0]);
-                bodyGrad.addColorStop(0.5, this.woolColors[2]);
-                bodyGrad.addColorStop(1, this.woolColors[3]);
-                ctx.fillStyle = bodyGrad;
-                ctx.beginPath();
-                ctx.roundRect(baseX - w / 2, bodyTop, w, bodyH, [w*0.35, w*0.35, w*0.2, w*0.2]);
-                ctx.fill();
-
-                // Pompons de laine décoratifs sur le corps
-                const poms = [this.woolColors[1], this.woolColors[4], this.woolColors[0]];
-                for (let i = 0; i < 3; i++) {
-                    ctx.fillStyle = poms[i];
-                    ctx.beginPath();
-                    ctx.arc(baseX - w*0.22 + i * (w*0.22), bodyTop + bodyH*0.45, w*0.09, 0, Math.PI*2);
-                    ctx.fill();
-                }
-
-                // --- COU + TÊTE (long cou caractéristique du lama) ---
-                const neckW = w * 0.34;
-                const neckH = h * 0.42;
-                const neckX = baseX - neckW/2 + w*0.08;
-                const neckTop = bodyTop - neckH * 0.85;
-                ctx.fillStyle = this.woolColors[3];
-                ctx.beginPath();
-                ctx.roundRect(neckX, neckTop, neckW, neckH, [neckW*0.4, neckW*0.4, neckW*0.15, neckW*0.15]);
-                ctx.fill();
-
-                // Tête
-                const headW = w * 0.46;
-                const headH = h * 0.26;
-                const headX = neckX + neckW/2 - headW/2;
-                const headTop = neckTop - headH * 0.8;
-                ctx.fillStyle = '#FFF6E9';
-                ctx.beginPath();
-                ctx.roundRect(headX, headTop, headW, headH, headW*0.32);
-                ctx.fill();
-
-                // Museau
-                ctx.fillStyle = '#FFE0C2';
-                ctx.beginPath();
-                ctx.roundRect(headX + headW*0.55, headTop + headH*0.4, headW*0.55, headH*0.5, headW*0.18);
-                ctx.fill();
-
-                // Oreilles (caractéristiques du lama : longues et dressées)
-                ctx.fillStyle = this.woolColors[1];
-                ctx.beginPath();
-                ctx.ellipse(headX + headW*0.18, headTop - headH*0.18, headW*0.1, headH*0.32, -0.2, 0, Math.PI*2);
-                ctx.ellipse(headX + headW*0.42, headTop - headH*0.2, headW*0.1, headH*0.34, 0.1, 0, Math.PI*2);
-                ctx.fill();
-
-                // Yeux mignons
-                ctx.fillStyle = '#1C1C1E';
-                ctx.beginPath();
-                ctx.arc(headX + headW*0.32, headTop + headH*0.42, headW*0.06, 0, Math.PI*2);
-                ctx.fill();
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(headX + headW*0.34, headTop + headH*0.39, headW*0.02, 0, Math.PI*2);
-                ctx.fill();
-
-                // Naseaux
-                ctx.fillStyle = '#D98E5F';
-                ctx.beginPath();
-                ctx.arc(headX + headW*0.95, headTop + headH*0.65, headW*0.035, 0, Math.PI*2);
-                ctx.fill();
+                const animal = ANIMALS[selectedAnimal] || ANIMALS.llama;
+                animal.draw(ctx, baseX, baseY, w, h, legSwing, equippedAccessories);
 
                 ctx.restore();
             }
@@ -1408,7 +2037,7 @@
         }
 
         function hideAllScreens() {
-            [startScreen, howtoScreen, rewardsScreen, pauseScreen, gameoverScreen].forEach(s => s.classList.remove('active'));
+            [startScreen, howtoScreen, rewardsScreen, animalScreen, pauseScreen, gameoverScreen].forEach(s => s.classList.remove('active'));
         }
 
         function startGame() {
@@ -1455,10 +2084,21 @@
         rewardsBtn.addEventListener('click', () => {
             refreshCoinDisplays();
             renderRewardsList();
+            drawRewardsPreview();
             hideAllScreens();
             rewardsScreen.classList.add('active');
         });
         rewardsBackBtn.addEventListener('click', () => {
+            hideAllScreens();
+            startScreen.classList.add('active');
+        });
+
+        animalSelectBtn.addEventListener('click', () => {
+            renderAnimalGrid();
+            hideAllScreens();
+            animalScreen.classList.add('active');
+        });
+        animalBackBtn.addEventListener('click', () => {
             hideAllScreens();
             startScreen.classList.add('active');
         });
